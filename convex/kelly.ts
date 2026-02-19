@@ -1,13 +1,17 @@
 import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
 
+// Helper: normalize legacy secretBall (single) to secretBalls (array)
+function getPlayerBalls(p: { secretBalls?: number[]; secretBall?: number }): number[] {
+  return p.secretBalls ?? (p.secretBall != null ? [p.secretBall] : []);
+}
+
 // ── Queries ─────────────────────────────────────────
 
 // Get the currently active kelly game
 export const getActive = query({
   args: {},
   handler: async (ctx) => {
-    // Check for "setup" or "active" games first
     const setupGame = await ctx.db
       .query("kellyGames")
       .filter((q) => q.eq(q.field("status"), "setup"))
@@ -55,7 +59,7 @@ export const getHistory = query({
 
 // ── Mutations ───────────────────────────────────────
 
-// Create a new kelly game in setup mode
+// Create a new kelly game
 export const createGame = mutation({
   args: {
     playerNames: v.array(v.string()),
@@ -90,13 +94,12 @@ export const createGame = mutation({
 
     // Randomly assign secret balls (1-15) to players
     const availableBalls = Array.from({ length: 15 }, (_, i) => i + 1);
-    // Fisher-Yates shuffle
     for (let i = availableBalls.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
       [availableBalls[i], availableBalls[j]] = [availableBalls[j], availableBalls[i]];
     }
 
-    // Shuffle player order too
+    // Shuffle player order
     const shuffledIndices = Array.from({ length: playerNames.length }, (_, i) => i);
     for (let i = shuffledIndices.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
@@ -108,9 +111,9 @@ export const createGame = mutation({
       secretBalls: availableBalls.slice(idx * ballsPerPlayer, (idx + 1) * ballsPerPlayer),
       isEliminated: false,
       order: shuffledIndices[idx],
+      peekCount: 0,
     }));
 
-    // Sort by order for turn tracking
     players.sort((a, b) => a.order - b.order);
 
     return await ctx.db.insert("kellyGames", {
@@ -143,7 +146,6 @@ export const pocketBall = mutation({
       throw new Error("Ball already pocketed");
     }
 
-    const currentPlayer = game.players[game.currentTurnIndex];
     const newPocketed = [...game.ballsPocketed, ballNumber];
 
     // Log the action
@@ -151,15 +153,11 @@ export const pocketBall = mutation({
       kellyGameId: gameId,
       action: "pocketed",
       ballNumber,
-      playerName: currentPlayer.name,
+      playerName: "game",
       timestamp: Date.now(),
     });
 
     // Check if this was someone's secret ball
-    // Normalize: support both secretBalls (array) and legacy secretBall (single)
-    const getPlayerBalls = (p: typeof game.players[number]): number[] =>
-      p.secretBalls ?? (p.secretBall != null ? [p.secretBall] : []);
-
     const ballOwner = game.players.find(
       (p) => getPlayerBalls(p).includes(ballNumber) && !p.isEliminated
     );
@@ -167,33 +165,21 @@ export const pocketBall = mutation({
     let updatedPlayers = [...game.players];
     let winner: string | undefined;
     let eliminated: string | undefined;
-    let ownerName: string | null = ballOwner ? ballOwner.name : null;
+    const ownerName: string | null = ballOwner ? ballOwner.name : null;
 
     if (ballOwner) {
-      if (ballOwner.name === currentPlayer.name) {
-        // Player pocketed their OWN secret ball — they win!
-        winner = currentPlayer.name;
-      } else {
-        // Someone else's secret ball was pocketed
-        // Check if ALL of that player's secret balls are now pocketed
-        const ownerRemainingBalls = getPlayerBalls(ballOwner).filter(
-          (b) => !newPocketed.includes(b)
+      // Check if ALL of that player's secret balls are now pocketed
+      const ownerRemainingBalls = getPlayerBalls(ballOwner).filter(
+        (b) => !newPocketed.includes(b)
+      );
+      if (ownerRemainingBalls.length === 0) {
+        // All their balls gone — eliminated
+        updatedPlayers = updatedPlayers.map((p) =>
+          p.name === ballOwner.name ? { ...p, isEliminated: true } : p
         );
-        if (ownerRemainingBalls.length === 0) {
-          // All their balls gone — eliminated
-          updatedPlayers = updatedPlayers.map((p) =>
-            p.name === ballOwner.name ? { ...p, isEliminated: true } : p
-          );
-          eliminated = ballOwner.name;
-        }
-        // If they still have remaining secret balls, they're NOT eliminated yet
+        eliminated = ballOwner.name;
       }
     }
-
-    // Compute new lowest ball on table
-    const allBallNumbers = Array.from({ length: 15 }, (_, i) => i + 1);
-    const remainingBalls = allBallNumbers.filter((b) => !newPocketed.includes(b));
-    const newLowest = remainingBalls.length > 0 ? Math.min(...remainingBalls) : 15;
 
     // Check if only one non-eliminated player remains
     const activePlayers = updatedPlayers.filter((p) => !p.isEliminated);
@@ -206,75 +192,88 @@ export const pocketBall = mutation({
         status: "finished",
         players: updatedPlayers,
         ballsPocketed: newPocketed,
-        lowestBallOnTable: newLowest,
         winner,
       });
       return { winner, eliminated, ballNumber, ownerName };
     }
 
-    // Player keeps shooting since they pocketed a ball
     await ctx.db.patch(gameId, {
       players: updatedPlayers,
       ballsPocketed: newPocketed,
-      lowestBallOnTable: newLowest,
     });
 
     return { winner: null, eliminated, ballNumber, ownerName };
   },
 });
 
-// Pass turn (miss or foul — no ball pocketed)
-export const passTurn = mutation({
+// Un-pocket a ball (put it back on the table)
+export const unpocketBall = mutation({
   args: {
     gameId: v.id("kellyGames"),
+    ballNumber: v.number(),
   },
-  handler: async (ctx, { gameId }) => {
+  handler: async (ctx, { gameId, ballNumber }) => {
     const game = await ctx.db.get(gameId);
     if (!game || game.status !== "active") {
       throw new Error("No active kelly game");
     }
+    if (!game.ballsPocketed.includes(ballNumber)) {
+      throw new Error("Ball is not pocketed");
+    }
 
-    const currentPlayer = game.players[game.currentTurnIndex];
+    const newPocketed = game.ballsPocketed.filter((b) => b !== ballNumber);
 
-    // Log the action
+    // Check if any eliminated player should be un-eliminated
+    // (if the ball being restored is one of their secret balls)
+    let updatedPlayers = [...game.players];
+    const affectedPlayer = updatedPlayers.find(
+      (p) => getPlayerBalls(p).includes(ballNumber) && p.isEliminated
+    );
+    if (affectedPlayer) {
+      // Restore them — they now have at least one ball back on the table
+      updatedPlayers = updatedPlayers.map((p) =>
+        p.name === affectedPlayer.name ? { ...p, isEliminated: false } : p
+      );
+    }
+
     await ctx.db.insert("kellyHistory", {
       kellyGameId: gameId,
-      action: "turn_passed",
-      playerName: currentPlayer.name,
+      action: "unpocketed",
+      ballNumber,
+      playerName: "game",
       timestamp: Date.now(),
     });
 
-    // Advance to next non-eliminated player
-    let nextIndex = game.currentTurnIndex;
-    do {
-      nextIndex = (nextIndex + 1) % game.players.length;
-    } while (game.players[nextIndex].isEliminated && nextIndex !== game.currentTurnIndex);
-
     await ctx.db.patch(gameId, {
-      currentTurnIndex: nextIndex,
+      players: updatedPlayers,
+      ballsPocketed: newPocketed,
     });
   },
 });
 
-// Advance turn explicitly (after pocketing, if desired)
-export const advanceTurn = mutation({
+// Record a peek at someone's balls (increment peekCount)
+export const recordPeek = mutation({
   args: {
     gameId: v.id("kellyGames"),
+    playerIndex: v.number(),
   },
-  handler: async (ctx, { gameId }) => {
+  handler: async (ctx, { gameId, playerIndex }) => {
     const game = await ctx.db.get(gameId);
     if (!game || game.status !== "active") {
       throw new Error("No active kelly game");
     }
+    if (playerIndex < 0 || playerIndex >= game.players.length) {
+      throw new Error("Invalid player index");
+    }
 
-    let nextIndex = game.currentTurnIndex;
-    do {
-      nextIndex = (nextIndex + 1) % game.players.length;
-    } while (game.players[nextIndex].isEliminated && nextIndex !== game.currentTurnIndex);
+    const updatedPlayers = [...game.players];
+    const current = updatedPlayers[playerIndex];
+    updatedPlayers[playerIndex] = {
+      ...current,
+      peekCount: (current.peekCount ?? 0) + 1,
+    };
 
-    await ctx.db.patch(gameId, {
-      currentTurnIndex: nextIndex,
-    });
+    await ctx.db.patch(gameId, { players: updatedPlayers });
   },
 });
 
