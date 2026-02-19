@@ -97,78 +97,84 @@ export default function ActiveSession() {
     showToast("New session started! 🎱", "success");
   };
 
+  // Loading state
+  if (activeSession === undefined) {
+    return (
+      <section className="glass-card rounded-2xl p-5 animate-fade-in">
+        <div className="flex items-center gap-2.5 mb-6">
+          <div className="w-2 h-2 rounded-full bg-slate-600" />
+          <h2 className="text-base font-bold text-white">Active Session</h2>
+        </div>
+        <div className="flex items-center justify-center py-10">
+          <div className="w-7 h-7 border-[3px] border-amber-400/80 border-t-transparent rounded-full animate-spin" />
+        </div>
+      </section>
+    );
+  }
+
   // No active session — show start button
   if (activeSession === null) {
     return (
-      <section className="rounded-2xl bg-slate-800/60 border border-slate-700 p-6 md:p-8">
-        <h2 className="text-xl font-bold text-yellow-300 mb-4 tracking-wide">
-          🎱 Active Session
-        </h2>
-        <p className="text-slate-400 mb-6">No session in progress.</p>
+      <section className="glass-card rounded-2xl p-5 animate-slide-up">
+        <div className="flex items-center gap-2.5 mb-4">
+          <div className="w-2 h-2 rounded-full bg-slate-600" />
+          <h2 className="text-base font-bold text-white">Active Session</h2>
+        </div>
+        <p className="text-slate-400 text-sm mb-5 text-center">No session in progress</p>
         <button
           onClick={handleNewSession}
-          className="w-full h-16 rounded-xl bg-yellow-400 text-slate-900 text-lg font-bold
-                     hover:bg-yellow-300 active:scale-95 transition-all duration-150
-                     min-h-[60px] cursor-pointer shadow-lg shadow-yellow-400/20"
+          className="w-full h-14 rounded-2xl btn-accent text-base font-bold
+                     active:scale-[0.97] transition-all duration-150
+                     cursor-pointer animate-glow-pulse"
         >
-          🎱 Start New Session
+          Start New Session
         </button>
       </section>
     );
   }
 
-  // Loading state
-  if (activeSession === undefined) {
-    return (
-      <section className="rounded-2xl bg-slate-800/60 border border-slate-700 p-6 md:p-8">
-        <h2 className="text-xl font-bold text-yellow-300 mb-4 tracking-wide">
-          🎱 Active Session
-        </h2>
-        <div className="flex items-center justify-center py-8">
-          <div className="w-8 h-8 border-4 border-yellow-400 border-t-transparent rounded-full animate-spin" />
-        </div>
-      </section>
-    );
-  }
-
   return (
-    <section className="rounded-2xl bg-slate-800/60 border border-slate-700 p-6 md:p-8">
-      <div className="flex items-center justify-between mb-2">
-        <h2 className="text-xl font-bold text-yellow-300 tracking-wide">
-          🎱 Active Session
-        </h2>
+    <section className="glass-card-elevated rounded-2xl p-5 animate-slide-up">
+      {/* Header row */}
+      <div className="flex items-center justify-between mb-5">
+        <div className="flex items-center gap-2.5">
+          <div className="w-2 h-2 rounded-full bg-emerald-400 animate-live-dot" />
+          <h2 className="text-base font-bold text-white">Live Session</h2>
+        </div>
         {totalPlayed > 0 && sessionActive && (
-          <span className="text-xs text-slate-500 font-medium">
-            Game {totalPlayed + 1} of 5
+          <span className="text-[11px] text-slate-500 font-semibold bg-slate-800/60 px-2.5 py-1 rounded-full">
+            GAME {totalPlayed + 1} OF 5
           </span>
         )}
       </div>
 
-      {/* Current session score */}
-      <div className="flex items-center justify-center gap-6 mb-6">
-        <div className="text-center min-w-[80px]">
-          <p className="text-xs text-blue-300/70 font-semibold mb-1 uppercase tracking-wider">
+      {/* Score Display */}
+      <div className="flex items-center justify-center gap-4 mb-5">
+        <div className="flex-1 text-center">
+          <p className="text-[11px] font-bold uppercase tracking-[0.15em] text-blue-400/70 mb-1">
             Matisse
           </p>
-          <span className="text-4xl font-black text-blue-400 tabular-nums">
+          <span className="text-5xl font-black text-gradient-blue tabular-nums leading-none">
             {activeSession.matisseWins}
           </span>
         </div>
-        <div className="flex flex-col items-center">
-          <span className="text-2xl text-slate-600 font-bold">vs</span>
+        <div className="flex flex-col items-center px-3">
+          <div className="w-px h-6 bg-slate-700/60 mb-1.5" />
+          <span className="text-[10px] font-bold text-slate-600 uppercase">vs</span>
+          <div className="w-px h-6 bg-slate-700/60 mt-1.5" />
         </div>
-        <div className="text-center min-w-[80px]">
-          <p className="text-xs text-red-300/70 font-semibold mb-1 uppercase tracking-wider">
+        <div className="flex-1 text-center">
+          <p className="text-[11px] font-bold uppercase tracking-[0.15em] text-red-400/70 mb-1">
             Joe
           </p>
-          <span className="text-4xl font-black text-red-400 tabular-nums">
+          <span className="text-5xl font-black text-gradient-red tabular-nums leading-none">
             {activeSession.joeWins}
           </span>
         </div>
       </div>
 
       {/* Pool Balls */}
-      <div className="flex items-center justify-center gap-2 sm:gap-4 mb-8">
+      <div className="flex items-center justify-center gap-1.5 sm:gap-3 mb-6 px-1">
         {balls.map((ball, i) => (
           <PoolBall key={i} number={i + 1} winner={ball.winner} />
         ))}
@@ -176,24 +182,22 @@ export default function ActiveSession() {
 
       {/* Win Buttons */}
       {sessionActive && (
-        <div className="grid grid-cols-2 gap-4 mb-3">
+        <div className="grid grid-cols-2 gap-3 mb-3">
           <button
             onClick={() => handleRecordWin("matisse")}
             disabled={isRecording}
-            className="h-16 rounded-xl bg-blue-600 text-white text-lg font-bold
-                       hover:bg-blue-500 active:scale-95 transition-all duration-150
-                       min-h-[60px] cursor-pointer shadow-lg shadow-blue-600/25
-                       disabled:opacity-50 disabled:cursor-not-allowed"
+            className="h-[56px] rounded-2xl btn-matisse text-white text-[15px] font-bold
+                       active:scale-[0.96] transition-all duration-150
+                       cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
           >
             Matisse Wins
           </button>
           <button
             onClick={() => handleRecordWin("joe")}
             disabled={isRecording}
-            className="h-16 rounded-xl bg-red-600 text-white text-lg font-bold
-                       hover:bg-red-500 active:scale-95 transition-all duration-150
-                       min-h-[60px] cursor-pointer shadow-lg shadow-red-600/25
-                       disabled:opacity-50 disabled:cursor-not-allowed"
+            className="h-[56px] rounded-2xl btn-joe text-white text-[15px] font-bold
+                       active:scale-[0.96] transition-all duration-150
+                       cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
           >
             Joe Wins
           </button>
@@ -202,20 +206,14 @@ export default function ActiveSession() {
 
       {/* Undo + End Session row */}
       {totalPlayed > 0 && sessionActive && (
-        <div className="grid grid-cols-[1fr_2fr] gap-3">
+        <div className="grid grid-cols-[auto_1fr] gap-2.5">
           <button
             onClick={handleUndo}
-            className="h-14 rounded-xl bg-slate-700/80 text-slate-400 text-sm font-semibold
-                       hover:bg-slate-600 hover:text-slate-300 active:scale-95 transition-all duration-150
-                       min-h-[56px] cursor-pointer border border-slate-600/60 flex items-center justify-center gap-1.5"
+            className="h-11 px-4 rounded-xl btn-ghost text-slate-400 text-sm font-medium
+                       active:scale-[0.96] transition-all duration-150
+                       cursor-pointer flex items-center justify-center gap-1.5"
           >
-            <svg
-              width="16"
-              height="16"
-              viewBox="0 0 16 16"
-              fill="none"
-              className="shrink-0"
-            >
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" className="shrink-0">
               <path
                 d="M3 8h10M3 8l3-3M3 8l3 3"
                 stroke="currentColor"
@@ -228,9 +226,9 @@ export default function ActiveSession() {
           </button>
           <button
             onClick={() => setShowEndConfirm(true)}
-            className="h-14 rounded-xl bg-slate-700/80 text-yellow-300 text-sm font-semibold
-                       hover:bg-slate-600 active:scale-95 transition-all duration-150
-                       min-h-[56px] cursor-pointer border border-slate-600/60"
+            className="h-11 rounded-xl btn-ghost text-amber-400/80 text-sm font-medium
+                       active:scale-[0.96] transition-all duration-150
+                       cursor-pointer"
           >
             End Session Early
           </button>
@@ -241,9 +239,9 @@ export default function ActiveSession() {
       {!sessionActive && activeSession.status === "active" && totalPlayed >= 5 && (
         <button
           onClick={handleNewSession}
-          className="w-full h-16 rounded-xl bg-yellow-400 text-slate-900 text-lg font-bold
-                     hover:bg-yellow-300 active:scale-95 transition-all duration-150
-                     min-h-[60px] cursor-pointer mt-4 shadow-lg shadow-yellow-400/20"
+          className="w-full h-14 rounded-2xl btn-accent text-base font-bold
+                     active:scale-[0.97] transition-all duration-150
+                     cursor-pointer mt-3 animate-glow-pulse"
         >
           Start Next Session
         </button>
@@ -260,7 +258,7 @@ export default function ActiveSession() {
         }
         confirmLabel="End Session"
         cancelLabel="Keep Playing"
-        confirmColor="bg-yellow-600 hover:bg-yellow-500"
+        confirmColor="btn-accent"
         onConfirm={handleEndEarly}
         onCancel={() => setShowEndConfirm(false)}
       />

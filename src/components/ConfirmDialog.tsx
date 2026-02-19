@@ -19,7 +19,7 @@ export default function ConfirmDialog({
   message,
   confirmLabel = "Confirm",
   cancelLabel = "Cancel",
-  confirmColor = "bg-red-600 hover:bg-red-500",
+  confirmColor = "btn-joe",
   onConfirm,
   onCancel,
 }: ConfirmDialogProps) {
@@ -35,32 +35,33 @@ export default function ConfirmDialog({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4"
+      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-md p-0 sm:p-4"
       onClick={onCancel}
     >
       <div
         ref={dialogRef}
         tabIndex={-1}
-        className="bg-slate-800 border border-slate-600 rounded-2xl p-6 max-w-sm w-full shadow-2xl
-                   animate-in fade-in slide-in-from-bottom-4 duration-200"
+        className="glass-card-elevated rounded-t-3xl sm:rounded-2xl p-6 pb-8 sm:pb-6 max-w-sm w-full safe-bottom
+                   animate-bounce-in"
         onClick={(e) => e.stopPropagation()}
       >
-        <h3 className="text-lg font-bold text-slate-50 mb-2">{title}</h3>
-        <p className="text-sm text-slate-400 mb-6">{message}</p>
+        <div className="w-10 h-1 rounded-full bg-slate-700 mx-auto mb-5 sm:hidden" />
+        <h3 className="text-lg font-bold text-white mb-2">{title}</h3>
+        <p className="text-sm text-slate-400 mb-6 leading-relaxed">{message}</p>
         <div className="grid grid-cols-2 gap-3">
           <button
             onClick={onCancel}
-            className="h-12 rounded-xl bg-slate-700 text-slate-300 font-semibold
-                       hover:bg-slate-600 active:scale-95 transition-all duration-150
-                       min-h-[48px] cursor-pointer border border-slate-600"
+            className="h-12 rounded-xl btn-ghost text-slate-300 font-semibold
+                       active:scale-[0.96] transition-all duration-150
+                       cursor-pointer"
           >
             {cancelLabel}
           </button>
           <button
             onClick={onConfirm}
             className={`h-12 rounded-xl text-white font-semibold
-                       active:scale-95 transition-all duration-150
-                       min-h-[48px] cursor-pointer ${confirmColor}`}
+                       active:scale-[0.96] transition-all duration-150
+                       cursor-pointer ${confirmColor}`}
           >
             {confirmLabel}
           </button>

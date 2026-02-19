@@ -9,29 +9,26 @@ export default function StreakBanner() {
   if (!streaks || streaks.currentStreak < 2) return null;
 
   const name = streaks.streakHolder === "matisse" ? "Matisse" : "Joe";
-  const color =
-    streaks.streakHolder === "matisse" ? "text-blue-400" : "text-red-400";
-  const bgColor =
-    streaks.streakHolder === "matisse"
-      ? "from-blue-900/30 to-blue-900/10 border-blue-700/40"
-      : "from-red-900/30 to-red-900/10 border-red-700/40";
+  const isMatisse = streaks.streakHolder === "matisse";
+
+  const bgGrad = isMatisse
+    ? "from-blue-500/10 via-blue-500/5 to-transparent border-blue-500/15"
+    : "from-red-500/10 via-red-500/5 to-transparent border-red-500/15";
+
+  const nameColor = isMatisse ? "text-gradient-blue" : "text-gradient-red";
 
   const fireEmojis = streaks.currentStreak >= 5 ? "🔥🔥🔥" : streaks.currentStreak >= 3 ? "🔥🔥" : "🔥";
 
   return (
     <div
-      className={`rounded-xl bg-gradient-to-r ${bgColor} border px-4 py-3 flex items-center justify-between`}
+      className={`rounded-2xl bg-gradient-to-r ${bgGrad} border px-4 py-3 flex items-center gap-3 animate-bounce-in`}
     >
-      <div className="flex items-center gap-2">
-        <span className="text-lg">{fireEmojis}</span>
-        <span className="text-sm font-semibold text-slate-300">
-          <span className={`font-bold ${color}`}>{name}</span> is on a{" "}
-          <span className="text-yellow-300 font-black">
-            {streaks.currentStreak}
-          </span>{" "}
-          session win streak!
-        </span>
-      </div>
+      <span className="text-base shrink-0">{fireEmojis}</span>
+      <span className="text-[13px] font-medium text-slate-400">
+        <span className={`font-bold ${nameColor}`}>{name}</span> is on a{" "}
+        <span className="text-gradient-gold font-black">{streaks.currentStreak}</span>{" "}
+        session streak!
+      </span>
     </div>
   );
 }

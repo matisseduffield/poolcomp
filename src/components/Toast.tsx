@@ -33,20 +33,20 @@ export default function ToastContainer() {
   }, []);
 
   return (
-    <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 flex flex-col gap-2 items-center pointer-events-none">
+    <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex flex-col gap-2 items-center pointer-events-none safe-bottom">
       {toasts.map((toast) => {
-        const bgColor =
+        const style =
           toast.type === "success"
-            ? "bg-emerald-600"
+            ? "bg-emerald-500/90 border-emerald-400/20"
             : toast.type === "undo"
-              ? "bg-amber-600"
-              : "bg-slate-700";
+              ? "bg-amber-500/90 border-amber-400/20"
+              : "bg-slate-700/90 border-slate-600/20";
 
         return (
           <div
             key={toast.id}
-            className={`${bgColor} text-white text-sm font-medium px-5 py-3 rounded-xl shadow-lg
-                        border border-white/10 animate-bounce-in pointer-events-auto`}
+            className={`${style} text-white text-[13px] font-semibold px-5 py-3 rounded-2xl
+                        shadow-2xl border backdrop-blur-md animate-bounce-in pointer-events-auto`}
           >
             {toast.message}
           </div>
