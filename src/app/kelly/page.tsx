@@ -8,8 +8,9 @@ import { playClick, playCheer } from "../../lib/sounds";
 import ToastContainer from "../../components/Toast";
 import AmbientBackground from "../../components/AmbientBackground";
 
-function PlayerSetup({ onStart }: { onStart: (names: string[]) => void }) {
+function PlayerSetup({ onStart }: { onStart: (names: string[], ballsPerPlayer: number) => void }) {
   const [players, setPlayers] = useState<string[]>(["", ""]);
+  const [ballsPerPlayer, setBallsPerPlayer] = useState(1);
 
   const addPlayer = () => {
     if (players.length >= 15) return;
@@ -27,7 +28,12 @@ function PlayerSetup({ onStart }: { onStart: (names: string[]) => void }) {
     setPlayers(updated);
   };
 
-  const canStart = players.filter((n) => n.trim()).length >= 2;
+  const validCount = players.filter((n) => n.trim()).length;
+  const canStart = validCount >= 2;
+  const maxBalls = validCount >= 2 ? Math.floor(15 / validCount) : 1;
+
+  // Clamp ballsPerPlayer if player count changes
+  const effectiveBpp = Math.min(ballsPerPlayer, maxBalls);
 
   return (
     <div className="glass-elevated rounded-3xl p-5 animate-slide-up">
@@ -66,6 +72,31 @@ function PlayerSetup({ onStart }: { onStart: (names: string[]) => void }) {
         ))}
       </div>
 
+      {/* Balls per player selector */}
+      <div className="glass rounded-xl p-3.5 mb-5">
+        <p className="text-[10px] text-slate-500 font-bold uppercase tracking-[0.2em] mb-2.5">Balls Per Player</p>
+        <div className="flex items-center gap-2">
+          {[1, 2, 3, 4, 5].filter(n => n <= maxBalls).map((n) => (
+            <button
+              key={n}
+              onClick={() => setBallsPerPlayer(n)}
+              className={`
+                flex-1 h-10 rounded-lg text-sm font-bold transition-all duration-150 cursor-pointer
+                ${effectiveBpp === n
+                  ? "bg-amber-400/20 text-amber-400 border border-amber-500/30"
+                  : "bg-slate-800/40 text-slate-500 border border-slate-700/30 hover:text-slate-300"
+                }
+              `}
+            >
+              {n}
+            </button>
+          ))}
+        </div>
+        <p className="text-[10px] text-slate-600 mt-2">
+          {validCount} players × {effectiveBpp} ball{effectiveBpp > 1 ? "s" : ""} = {validCount * effectiveBpp} of 15 balls assigned
+        </p>
+      </div>
+
       <div className="flex gap-3">
         {players.length < 15 && (
           <button
@@ -82,14 +113,14 @@ function PlayerSetup({ onStart }: { onStart: (names: string[]) => void }) {
         <button
           onClick={() => {
             const validNames = players.filter((n) => n.trim());
-            if (validNames.length >= 2) onStart(validNames);
+            if (validNames.length >= 2) onStart(validNames, effectiveBpp);
           }}
           disabled={!canStart}
           className="flex-1 h-12 rounded-2xl btn-accent text-base font-extrabold
                      transition-all duration-150 cursor-pointer
                      disabled:opacity-40 disabled:cursor-not-allowed"
         >
-          Deal Balls ({players.filter((n) => n.trim()).length} players)
+          Deal Balls ({validCount} players)
         </button>
       </div>
     </div>
@@ -187,10 +218,12 @@ function ActiveKellyGame({
     _id: string;
     players: Array<{
       name: string;
-      secretBall: number;
+      secretBalls?: number[];
+      secretBall?: number;
       isEliminated: boolean;
       order: number;
     }>;
+    ballsPerPlayer?: number;
     currentTurnIndex: number;
     ballsPocketed: number[];
     lowestBallOnTable: number;
@@ -203,14 +236,25 @@ function ActiveKellyGame({
   const advanceTurn = useMutation(api.kelly.advanceTurn);
   const cancelGame = useMutation(api.kelly.cancelGame);
   const [showCancel, setShowCancel] = useState(false);
-  const [showSecret, setShowSecret] = useState(false);
   const [lastPocketed, setLastPocketed] = useState(false);
+  // Per-player secret reveal: index of player currently peeking, or null
+  const [peekingPlayer, setPeekingPlayer] = useState<number | null>(null);
+  // Announcement state after pocketing
+  const [announcement, setAnnouncement] = useState<{
+    ballNumber: number;
+    ownerName: string | null;
+    eliminated: string | undefined;
+    winner: string | null;
+  } | null>(null);
 
   const currentPlayer = game.players[game.currentTurnIndex];
   const allBalls = Array.from({ length: 15 }, (_, i) => i + 1);
-  const activePlayers = game.players.filter((p) => !p.isEliminated);
+  const effectiveBpp = game.ballsPerPlayer ?? 1;
 
-  // Find viewer's secret ball (show all since it's a shared device)
+  // Normalize legacy secretBall (single) to secretBalls (array)
+  const getPlayerBalls = (p: typeof game.players[number]): number[] =>
+    p.secretBalls ?? (p.secretBall != null ? [p.secretBall] : []);
+
   const handlePocket = async (ballNumber: number) => {
     playClick();
     try {
@@ -220,16 +264,24 @@ function ActiveKellyGame({
       });
       setLastPocketed(true);
 
-      if (result.eliminated && !result.winner) {
-        showToast(`${result.eliminated} eliminated! Their secret ball was ${ballNumber}`, "info");
-      }
+      // Show announcement overlay
+      setAnnouncement({
+        ballNumber: result.ballNumber,
+        ownerName: result.ownerName ?? null,
+        eliminated: result.eliminated ?? undefined,
+        winner: result.winner ?? null,
+      });
+
       if (result.winner) {
         playCheer();
-        showToast(`🏆 ${result.winner} wins the game!`, "success");
       }
     } catch (e: unknown) {
       showToast((e as Error).message, "info");
     }
+  };
+
+  const dismissAnnouncement = () => {
+    setAnnouncement(null);
   };
 
   const handleMiss = async () => {
@@ -251,6 +303,14 @@ function ActiveKellyGame({
     showToast("Kelly game cancelled", "info");
   };
 
+  const handlePeek = (playerIndex: number) => {
+    if (peekingPlayer === playerIndex) {
+      setPeekingPlayer(null);
+    } else {
+      setPeekingPlayer(playerIndex);
+    }
+  };
+
   if (game.status === "finished") {
     return (
       <div className="glass-elevated rounded-3xl p-5 animate-slide-up text-center">
@@ -258,6 +318,7 @@ function ActiveKellyGame({
         <h2 className="text-2xl font-black text-gradient-gold mb-2">{game.winner} Wins!</h2>
         <p className="text-slate-500 text-sm mb-5">
           {game.ballsPocketed.length} balls pocketed &middot; {game.players.length} players
+          {effectiveBpp > 1 && ` · ${effectiveBpp} balls each`}
         </p>
 
         {/* Reveal all secret balls */}
@@ -280,9 +341,13 @@ function ActiveKellyGame({
                   {player.name}
                 </span>
               </div>
-              <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-slate-800/50 text-slate-400">
-                🎱 {player.secretBall}
-              </span>
+              <div className="flex items-center gap-1.5">
+                {getPlayerBalls(player).map((ball) => (
+                  <span key={ball} className="text-xs font-bold px-2 py-0.5 rounded-full bg-slate-800/50 text-slate-400">
+                    🎱 {ball}
+                  </span>
+                ))}
+              </div>
             </div>
           ))}
         </div>
@@ -292,6 +357,110 @@ function ActiveKellyGame({
 
   return (
     <div className="glass-elevated rounded-3xl p-5 animate-slide-up space-y-5">
+      {/* Announcement overlay */}
+      {announcement && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm animate-fade-in"
+          onClick={dismissAnnouncement}
+        >
+          <div
+            className={`mx-6 max-w-sm w-full rounded-3xl p-6 text-center space-y-3 animate-scale-in ${
+              announcement.winner
+                ? "bg-gradient-to-b from-amber-950/90 to-slate-900/95 border border-amber-500/30"
+                : announcement.eliminated
+                  ? "bg-gradient-to-b from-red-950/90 to-slate-900/95 border border-red-500/30"
+                  : announcement.ownerName
+                    ? "bg-gradient-to-b from-orange-950/90 to-slate-900/95 border border-orange-500/30"
+                    : "bg-gradient-to-b from-slate-800/95 to-slate-900/95 border border-slate-600/30"
+            }`}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="text-4xl">
+              {announcement.winner ? "🏆" : announcement.eliminated ? "💀" : announcement.ownerName ? "⚠️" : "✅"}
+            </div>
+            <div className="space-y-1">
+              {announcement.winner ? (
+                <>
+                  <p className="text-2xl font-black text-gradient-gold">{announcement.winner} Wins!</p>
+                  <p className="text-sm text-slate-400">Pocketed their own ball — the <span className="text-amber-400 font-bold">{announcement.ballNumber}</span> ball!</p>
+                </>
+              ) : announcement.eliminated ? (
+                <>
+                  <p className="text-xl font-black text-red-400">{announcement.eliminated} Eliminated!</p>
+                  <p className="text-sm text-slate-400">
+                    The <span className="text-amber-400 font-bold">{announcement.ballNumber}</span> ball was {announcement.eliminated}&apos;s
+                    {effectiveBpp > 1 ? " last secret ball" : " secret ball"}!
+                  </p>
+                </>
+              ) : announcement.ownerName ? (
+                <>
+                  <p className="text-xl font-black text-orange-400">{announcement.ownerName}&apos;s Ball!</p>
+                  <p className="text-sm text-slate-400">
+                    The <span className="text-amber-400 font-bold">{announcement.ballNumber}</span> ball belongs to {announcement.ownerName}
+                    {effectiveBpp > 1 ? " — but they still have balls remaining" : ""}
+                  </p>
+                </>
+              ) : (
+                <>
+                  <p className="text-xl font-black text-slate-300">Nobody&apos;s Ball</p>
+                  <p className="text-sm text-slate-500">
+                    The <span className="text-amber-400 font-bold">{announcement.ballNumber}</span> ball wasn&apos;t assigned to anyone. Safe!
+                  </p>
+                </>
+              )}
+            </div>
+            <button
+              onClick={dismissAnnouncement}
+              className="mt-2 h-11 px-8 rounded-xl bg-white/10 text-white text-sm font-bold
+                         border border-white/10 transition-all duration-150 cursor-pointer
+                         hover:bg-white/20"
+            >
+              OK
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Peek overlay - shows a player's secret balls privately */}
+      {peekingPlayer !== null && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md animate-fade-in"
+          onClick={() => setPeekingPlayer(null)}
+        >
+          <div
+            className="mx-6 max-w-sm w-full rounded-3xl p-6 text-center space-y-4 bg-gradient-to-b from-emerald-950/90 to-slate-900/95 border border-emerald-500/30 animate-scale-in"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="text-3xl">🤫</div>
+            <p className="text-lg font-black text-emerald-400">{game.players[peekingPlayer].name}&apos;s Secret Ball{effectiveBpp > 1 ? "s" : ""}</p>
+            <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Don&apos;t let anyone else see!</p>
+            <div className="flex items-center justify-center gap-3 py-3">
+              {getPlayerBalls(game.players[peekingPlayer]).map((ball) => (
+                <div key={ball} className="relative">
+                  <KellyBall
+                    number={ball}
+                    isPocketed={game.ballsPocketed.includes(ball)}
+                    isLowest={false}
+                    isSecret={true}
+                  />
+                  {game.ballsPocketed.includes(ball) && (
+                    <span className="absolute -bottom-4 left-1/2 -translate-x-1/2 text-[9px] text-red-400 font-bold">GONE</span>
+                  )}
+                </div>
+              ))}
+            </div>
+            <button
+              onClick={() => setPeekingPlayer(null)}
+              className="mt-2 h-11 px-8 rounded-xl bg-emerald-500/20 text-emerald-400 text-sm font-bold
+                         border border-emerald-500/20 transition-all duration-150 cursor-pointer
+                         hover:bg-emerald-500/30"
+            >
+              Hide
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Turn indicator */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2.5">
@@ -360,25 +529,20 @@ function ActiveKellyGame({
       {/* Players list */}
       <div>
         <p className="text-[10px] text-slate-500 font-bold uppercase tracking-[0.2em] mb-3 px-1">
-          Players
-          <button
-            onClick={() => setShowSecret(!showSecret)}
-            className="ml-2 text-amber-400/50 hover:text-amber-400 transition-colors cursor-pointer"
-          >
-            {showSecret ? "hide secrets" : "show secrets"}
-          </button>
+          Players — tap a name to peek at their secret ball{effectiveBpp > 1 ? "s" : ""}
         </p>
         <div className="space-y-1.5">
           {game.players.map((player, idx) => (
-            <div
+            <button
               key={idx}
+              onClick={() => !player.isEliminated && handlePeek(idx)}
               className={`
-                flex items-center justify-between px-3.5 py-2.5 rounded-xl
+                w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl
                 ${player.isEliminated
-                  ? "bg-slate-800/30 opacity-50"
+                  ? "bg-slate-800/30 opacity-50 cursor-not-allowed"
                   : idx === game.currentTurnIndex
-                    ? "bg-emerald-500/10 border border-emerald-500/20"
-                    : "stat-card"
+                    ? "bg-emerald-500/10 border border-emerald-500/20 cursor-pointer hover:bg-emerald-500/15"
+                    : "stat-card cursor-pointer hover:bg-slate-700/30"
                 }
                 transition-all duration-200
               `}
@@ -395,18 +559,18 @@ function ActiveKellyGame({
                 )}
               </div>
               <div className="flex items-center gap-2">
-                {showSecret && (
-                  <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${
-                    player.isEliminated
-                      ? "bg-slate-800/50 text-slate-600"
-                      : "bg-amber-400/10 text-amber-400/80"
-                  }`}>
-                    🎱 {player.secretBall}
+                {!player.isEliminated && (
+                  <span className="text-[10px] text-emerald-400/50 font-bold flex items-center gap-1">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none">
+                      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8S1 12 1 12z" stroke="currentColor" strokeWidth="1.5"/>
+                      <circle cx="12" cy="12" r="3" stroke="currentColor" strokeWidth="1.5"/>
+                    </svg>
+                    PEEK
                   </span>
                 )}
                 <span className="text-[9px] text-slate-600 font-bold">#{player.order + 1}</span>
               </div>
-            </div>
+            </button>
           ))}
         </div>
       </div>
@@ -483,11 +647,11 @@ export default function KellyPoolPage() {
   const createGame = useMutation(api.kelly.createGame);
   const [showNewSetup, setShowNewSetup] = useState(false);
 
-  const handleStart = async (names: string[]) => {
+  const handleStart = async (names: string[], ballsPerPlayer: number) => {
     playClick();
     setShowNewSetup(false);
     try {
-      await createGame({ playerNames: names });
+      await createGame({ playerNames: names, ballsPerPlayer });
       showToast("Balls dealt! Game on! 🎱", "success");
     } catch (e: unknown) {
       showToast((e as Error).message, "info");
@@ -540,11 +704,11 @@ export default function KellyPoolPage() {
               <div className="text-xs text-slate-500 leading-relaxed">
                 <p className="font-semibold text-slate-400 mb-1">How to play</p>
                 <p>
-                  Each player is secretly assigned a numbered ball. Players take turns shooting —
+                  Each player is secretly assigned one or more numbered balls. Players take turns shooting —
                   you must always hit the <span className="text-amber-400 font-bold">lowest numbered ball</span> on
                   the table first.
                   Pocket your own secret ball to <span className="text-emerald-400 font-bold">win</span>.
-                  If someone else pockets your ball, you&apos;re <span className="text-red-400 font-bold">eliminated</span>.
+                  If someone else pockets all your secret balls, you&apos;re <span className="text-red-400 font-bold">eliminated</span>.
                 </p>
               </div>
             </div>
@@ -572,7 +736,7 @@ export default function KellyPoolPage() {
               <ActiveKellyGame game={activeGame as never} />
               <div className="grid grid-cols-2 gap-3">
                 <button
-                  onClick={() => handleStart(activeGame.players.map((p) => p.name))}
+                  onClick={() => handleStart(activeGame.players.map((p) => p.name), activeGame.ballsPerPlayer ?? 1)}
                   className="h-14 rounded-2xl btn-accent text-sm font-extrabold
                              transition-all duration-150 cursor-pointer animate-glow-pulse"
                 >

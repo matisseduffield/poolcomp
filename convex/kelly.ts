@@ -59,13 +59,19 @@ export const getHistory = query({
 export const createGame = mutation({
   args: {
     playerNames: v.array(v.string()),
+    ballsPerPlayer: v.optional(v.number()),
   },
-  handler: async (ctx, { playerNames }) => {
+  handler: async (ctx, { playerNames, ballsPerPlayer: bpp }) => {
+    const ballsPerPlayer = bpp ?? 1;
     if (playerNames.length < 2) {
       throw new Error("Need at least 2 players");
     }
     if (playerNames.length > 15) {
       throw new Error("Maximum 15 players");
+    }
+    const totalNeeded = playerNames.length * ballsPerPlayer;
+    if (totalNeeded > 15) {
+      throw new Error(`Not enough balls: ${playerNames.length} players × ${ballsPerPlayer} balls = ${totalNeeded}, but only 15 available`);
     }
 
     // Check no active game exists
@@ -99,7 +105,7 @@ export const createGame = mutation({
 
     const players = playerNames.map((name, idx) => ({
       name,
-      secretBall: availableBalls[idx],
+      secretBalls: availableBalls.slice(idx * ballsPerPlayer, (idx + 1) * ballsPerPlayer),
       isEliminated: false,
       order: shuffledIndices[idx],
     }));
@@ -110,6 +116,7 @@ export const createGame = mutation({
     return await ctx.db.insert("kellyGames", {
       status: "active",
       players,
+      ballsPerPlayer,
       currentTurnIndex: 0,
       ballsPocketed: [],
       lowestBallOnTable: 1,
@@ -149,22 +156,37 @@ export const pocketBall = mutation({
     });
 
     // Check if this was someone's secret ball
-    const eliminatedPlayer = game.players.find(
-      (p) => p.secretBall === ballNumber && !p.isEliminated
+    // Normalize: support both secretBalls (array) and legacy secretBall (single)
+    const getPlayerBalls = (p: typeof game.players[number]): number[] =>
+      p.secretBalls ?? (p.secretBall != null ? [p.secretBall] : []);
+
+    const ballOwner = game.players.find(
+      (p) => getPlayerBalls(p).includes(ballNumber) && !p.isEliminated
     );
 
     let updatedPlayers = [...game.players];
     let winner: string | undefined;
+    let eliminated: string | undefined;
+    let ownerName: string | null = ballOwner ? ballOwner.name : null;
 
-    if (eliminatedPlayer) {
-      if (eliminatedPlayer.name === currentPlayer.name) {
+    if (ballOwner) {
+      if (ballOwner.name === currentPlayer.name) {
         // Player pocketed their OWN secret ball — they win!
         winner = currentPlayer.name;
       } else {
-        // Someone else's secret ball was pocketed — they're eliminated
-        updatedPlayers = updatedPlayers.map((p) =>
-          p.name === eliminatedPlayer.name ? { ...p, isEliminated: true } : p
+        // Someone else's secret ball was pocketed
+        // Check if ALL of that player's secret balls are now pocketed
+        const ownerRemainingBalls = getPlayerBalls(ballOwner).filter(
+          (b) => !newPocketed.includes(b)
         );
+        if (ownerRemainingBalls.length === 0) {
+          // All their balls gone — eliminated
+          updatedPlayers = updatedPlayers.map((p) =>
+            p.name === ballOwner.name ? { ...p, isEliminated: true } : p
+          );
+          eliminated = ballOwner.name;
+        }
+        // If they still have remaining secret balls, they're NOT eliminated yet
       }
     }
 
@@ -187,18 +209,17 @@ export const pocketBall = mutation({
         lowestBallOnTable: newLowest,
         winner,
       });
-      return { winner, eliminated: eliminatedPlayer?.name, ballNumber };
+      return { winner, eliminated, ballNumber, ownerName };
     }
 
-    // Advance to next non-eliminated player (current player keeps shooting since they pocketed)
-    // In rotation pool, pocketing any ball legally means you continue
+    // Player keeps shooting since they pocketed a ball
     await ctx.db.patch(gameId, {
       players: updatedPlayers,
       ballsPocketed: newPocketed,
       lowestBallOnTable: newLowest,
     });
 
-    return { winner: null, eliminated: eliminatedPlayer?.name, ballNumber };
+    return { winner: null, eliminated, ballNumber, ownerName };
   },
 });
 

@@ -22,10 +22,12 @@ export default defineSchema({
     status: v.union(v.literal("setup"), v.literal("active"), v.literal("finished"), v.literal("cancelled")),
     players: v.array(v.object({
       name: v.string(),
-      secretBall: v.number(),       // 1-15, assigned randomly
+      secretBalls: v.optional(v.array(v.number())), // new: multiple secret balls
+      secretBall: v.optional(v.number()),            // legacy: single secret ball
       isEliminated: v.boolean(),
       order: v.number(),            // turn order (0-based)
     })),
+    ballsPerPlayer: v.optional(v.number()),  // how many secret balls each player gets
     currentTurnIndex: v.number(),   // index into players array
     ballsPocketed: v.array(v.number()), // ball numbers that have been pocketed
     lowestBallOnTable: v.number(),  // the current lowest numbered ball
