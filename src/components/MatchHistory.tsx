@@ -97,6 +97,10 @@ export default function MatchHistory() {
                 ? "text-red-400"
                 : "text-slate-400";
 
+            // Special indicators
+            const isSweep = (session.matisseWins === 3 && session.joeWins === 0) || (session.joeWins === 3 && session.matisseWins === 0);
+            const isCloseMatch = Math.abs(session.matisseWins - session.joeWins) <= 1 && (session.matisseWins + session.joeWins) >= 4;
+
             return (
               <li
                 key={session._id}
@@ -112,6 +116,9 @@ export default function MatchHistory() {
                   <span className="text-xs font-semibold text-slate-400">
                     {winnerLabel}
                   </span>
+                  {/* Badges */}
+                  {isSweep && <span className="text-[9px] font-bold text-amber-400 bg-amber-500/10 px-1.5 py-0.5 rounded-full">SWEEP</span>}
+                  {isCloseMatch && !isSweep && <span className="text-[9px] font-bold text-slate-500 bg-slate-700/40 px-1.5 py-0.5 rounded-full">CLOSE</span>}
                 </div>
                 <span className="text-[11px] text-slate-600 font-medium tabular-nums">
                   {date}

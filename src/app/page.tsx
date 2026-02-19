@@ -50,11 +50,12 @@ export default function Home() {
           <a
             href="/kelly"
             className="h-9 px-3.5 rounded-full glass flex items-center gap-2
-                       text-xs font-bold text-slate-400 hover:text-amber-400
-                       transition-all duration-200 hover-lift cursor-pointer"
+                       text-xs font-bold text-amber-400/70 hover:text-amber-400
+                       transition-all duration-200 hover-lift cursor-pointer
+                       border border-amber-500/10 hover:border-amber-500/30"
           >
             <span className="text-sm">🎱</span>
-            Kelly
+            Kelly Pool
           </a>
         </div>
       </header>

@@ -91,6 +91,19 @@ export default function Leaderboard() {
         </div>
       </div>
 
+      {/* Differential badge */}
+      {!tied && totalSessions > 0 && (
+        <div className="flex justify-center -mt-1 mb-3">
+          <span className={`text-[10px] font-extrabold px-3 py-1 rounded-full border ${
+            matisseLeads
+              ? "text-blue-400 bg-blue-500/10 border-blue-500/20"
+              : "text-red-400 bg-red-500/10 border-red-500/20"
+          }`}>
+            {matisseLeads ? "Matisse" : "Joe"} leads by {Math.abs(scores.matisseSessions - scores.joeSessions)}
+          </span>
+        </div>
+      )}
+
       {/* Session Win Bar */}
       {totalSessions > 0 && (
         <div className="mb-5 px-1">
@@ -125,10 +138,10 @@ export default function Leaderboard() {
       )}
 
       {/* Stats Grid */}
-      <div className="grid grid-cols-3 gap-2">
+      <div className="grid grid-cols-2 gap-2 mb-2">
         {/* Games Won */}
         <div className="stat-card rounded-xl p-3 text-center">
-          <p className="text-[9px] text-slate-500 font-bold uppercase tracking-[0.15em] mb-1.5">Games</p>
+          <p className="text-[9px] text-slate-500 font-bold uppercase tracking-[0.15em] mb-1.5">Games Won</p>
           <div className="flex items-baseline justify-center gap-1">
             <span className="text-base font-black text-gradient-blue tabular-nums">{lifetime.matisseGames}</span>
             <span className="text-slate-700 text-[9px] font-bold">-</span>
@@ -138,21 +151,32 @@ export default function Leaderboard() {
 
         {/* Game Win Rate */}
         <div className="stat-card rounded-xl p-3 text-center">
-          <p className="text-[9px] text-slate-500 font-bold uppercase tracking-[0.15em] mb-1.5">Game %</p>
+          <p className="text-[9px] text-slate-500 font-bold uppercase tracking-[0.15em] mb-1.5">Game Win %</p>
           <div className="flex items-baseline justify-center gap-1">
             <span className="text-base font-black text-gradient-blue tabular-nums">{matisseGamePct}</span>
             <span className="text-slate-700 text-[9px] font-bold">-</span>
             <span className="text-base font-black text-gradient-red tabular-nums">{100 - matisseGamePct}</span>
           </div>
         </div>
+      </div>
 
+      <div className="grid grid-cols-2 gap-2">
         {/* Best Streak */}
         <div className="stat-card rounded-xl p-3 text-center">
-          <p className="text-[9px] text-slate-500 font-bold uppercase tracking-[0.15em] mb-1.5">Streak</p>
+          <p className="text-[9px] text-slate-500 font-bold uppercase tracking-[0.15em] mb-1.5">Best Streak</p>
           <div className="flex items-baseline justify-center gap-1">
             <span className="text-base font-black text-gradient-blue tabular-nums">{streaks?.bestMatisse ?? 0}</span>
             <span className="text-slate-700 text-[9px] font-bold">-</span>
             <span className="text-base font-black text-gradient-red tabular-nums">{streaks?.bestJoe ?? 0}</span>
+          </div>
+        </div>
+
+        {/* Total Sessions */}
+        <div className="stat-card rounded-xl p-3 text-center">
+          <p className="text-[9px] text-slate-500 font-bold uppercase tracking-[0.15em] mb-1.5">Sessions</p>
+          <div className="flex items-baseline justify-center gap-1">
+            <span className="text-base font-black text-gradient-gold tabular-nums">{totalSessions}</span>
+            <span className="text-slate-700 text-[9px] font-bold">played</span>
           </div>
         </div>
       </div>

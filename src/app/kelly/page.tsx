@@ -557,18 +557,60 @@ function ActiveKellyGame({
   };
 
   if (game.status === "finished") {
+    const shareResult = async () => {
+      const lines = [`🏆 ${game.winner} wins Kelly Pool!`, ""];
+      const sorted = [...game.players].sort((a, b) => {
+        if (a.name === game.winner) return -1;
+        if (b.name === game.winner) return 1;
+        return 0;
+      });
+      for (const p of sorted) {
+        const balls = getPlayerBalls(p);
+        const prefix = p.name === game.winner ? "👑" : p.isEliminated ? "💀" : "🎱";
+        lines.push(`${prefix} ${p.name}: ${balls.join(", ")}`);
+      }
+      lines.push("", `⏱ ${elapsed || "—"} · ${game.ballsPocketed.length} balls pocketed`);
+      const text = lines.join("\n");
+
+      try {
+        if (navigator.share) {
+          await navigator.share({ text });
+        } else {
+          await navigator.clipboard.writeText(text);
+          showToast("Result copied to clipboard!", "success");
+        }
+      } catch {
+        try {
+          await navigator.clipboard.writeText(text);
+          showToast("Result copied to clipboard!", "success");
+        } catch { /* ignore */ }
+      }
+    };
+
     return (
       <div className="glass-elevated rounded-3xl p-5 animate-slide-up text-center">
         <Confetti active={showConfetti} />
-        <div className="text-4xl mb-3">🏆</div>
+        <div className="text-4xl mb-3 animate-crown">🏆</div>
         <h2 className="text-2xl font-black text-gradient-gold mb-1">{game.winner} Wins!</h2>
-        <div className="flex items-center justify-center gap-3 text-slate-500 text-sm mb-5">
+        <div className="flex items-center justify-center gap-3 text-slate-500 text-sm mb-4">
           <span>{game.ballsPocketed.length} balls pocketed</span>
           <span>&middot;</span>
           <span>{game.players.length} players</span>
           {effectiveBpp > 1 && <><span>&middot;</span><span>{effectiveBpp} balls each</span></>}
           {elapsed && <><span>&middot;</span><span>⏱ {elapsed}</span></>}
         </div>
+
+        {/* Share button */}
+        <button
+          onClick={shareResult}
+          className="inline-flex items-center gap-1.5 text-[11px] font-bold text-slate-500 bg-slate-800/60 px-3 py-1.5 rounded-full border border-slate-700/30
+                     hover:text-amber-400 hover:border-amber-500/20 transition-all cursor-pointer mb-4"
+        >
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none">
+            <path d="M4 12v7a2 2 0 002 2h12a2 2 0 002-2v-7M16 6l-4-4-4 4M12 2v13" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+          </svg>
+          Share Result
+        </button>
 
         {/* Reveal all secret balls with actual colored balls */}
         <div className="space-y-2">
@@ -769,6 +811,9 @@ function ActiveKellyGame({
               )}
               <span className="text-[11px] text-slate-400 font-bold bg-slate-800/70 px-3 py-1 rounded-full border border-slate-700/40">
                 {15 - game.ballsPocketed.length} LEFT
+              </span>
+              <span className="text-[11px] text-emerald-400/70 font-bold bg-slate-800/70 px-2.5 py-1 rounded-full border border-slate-700/40">
+                {game.players.filter(p => !p.isEliminated).length} alive
               </span>
               {/* Re-reveal button */}
               <button

@@ -8,7 +8,7 @@ import ScoreRing from "./ScoreRing";
 import ConfirmDialog from "./ConfirmDialog";
 import Confetti from "./Confetti";
 import { showToast } from "./Toast";
-import { playClick, playCheer, playUndo } from "../lib/sounds";
+import { playClick, playCheer, playUndo, playPocket } from "../lib/sounds";
 
 export default function ActiveSession() {
   const activeSession = useQuery(api.sessions.getActive);
@@ -53,7 +53,7 @@ export default function ActiveSession() {
   const handleRecordWin = async (winner: "matisse" | "joe") => {
     if (!activeSession || isRecording) return;
     setIsRecording(true);
-    playClick();
+    playPocket();
     try {
       const result = await recordWin({
         sessionId: activeSession._id,
@@ -165,11 +165,30 @@ export default function ActiveSession() {
           <div className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-live-dot" />
           <h2 className="text-sm font-bold text-emerald-400/90 uppercase tracking-wider">Live</h2>
         </div>
-        {totalPlayed > 0 && sessionActive && (
-          <span className="text-[11px] text-slate-400 font-bold bg-slate-800/70 px-3 py-1 rounded-full border border-slate-700/40">
-            GAME {totalPlayed + 1} / 5
-          </span>
-        )}
+        <div className="flex items-center gap-2">
+          {/* Match point warning */}
+          {sessionActive && (activeSession.matisseWins === 2 || activeSession.joeWins === 2) && (
+            <span className={`text-[10px] font-extrabold px-2.5 py-1 rounded-full border animate-soft-pulse ${
+              activeSession.matisseWins === 2 && activeSession.joeWins === 2
+                ? "text-amber-400 bg-amber-500/10 border-amber-500/20"
+                : activeSession.matisseWins === 2
+                  ? "text-blue-400 bg-blue-500/10 border-blue-500/20"
+                  : "text-red-400 bg-red-500/10 border-red-500/20"
+            }`}>
+              {activeSession.matisseWins === 2 && activeSession.joeWins === 2
+                ? "MATCH POINT BOTH"
+                : activeSession.matisseWins === 2
+                  ? "MATISSE AT MATCH POINT"
+                  : "JOE AT MATCH POINT"
+              }
+            </span>
+          )}
+          {totalPlayed > 0 && sessionActive && !(activeSession.matisseWins === 2 || activeSession.joeWins === 2) && (
+            <span className="text-[11px] text-slate-400 font-bold bg-slate-800/70 px-3 py-1 rounded-full border border-slate-700/40">
+              GAME {totalPlayed + 1} / 5
+            </span>
+          )}
+        </div>
       </div>
 
       {/* Score Rings */}
@@ -292,7 +311,38 @@ export default function ActiveSession() {
       )}
 
       {/* Session completed — start new */}
-      {!sessionActive && activeSession.status === "active" && totalPlayed >= 5 && (
+      {activeSession.status === "completed" && (
+        <div className="space-y-3 mt-3">
+          {/* Session result summary */}
+          <div className="text-center py-2">
+            <p className={`text-sm font-bold ${
+              activeSession.winner === "matisse"
+                ? "text-blue-400"
+                : activeSession.winner === "joe"
+                  ? "text-red-400"
+                  : "text-slate-400"
+            }`}>
+              {activeSession.winner === "matisse"
+                ? "🎉 Matisse wins the session!"
+                : activeSession.winner === "joe"
+                  ? "🎉 Joe wins the session!"
+                  : "🤝 Session tied!"
+              }
+            </p>
+          </div>
+          <button
+            onClick={handleNewSession}
+            className="w-full h-14 rounded-2xl btn-accent text-base font-extrabold
+                       active:scale-[0.97] transition-all duration-150
+                       cursor-pointer animate-glow-pulse"
+          >
+            Start Next Session
+          </button>
+        </div>
+      )}
+
+      {/* Session still active but all 5 games played */}
+      {activeSession.status === "active" && !sessionActive && totalPlayed >= 5 && (
         <button
           onClick={handleNewSession}
           className="w-full h-14 rounded-2xl btn-accent text-base font-extrabold

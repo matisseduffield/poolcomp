@@ -275,6 +275,18 @@ button, a, [role="button"] {
   100% { width: 0%; }
 }
 
+@keyframes wiggle {
+  0%, 100% { transform: rotate(0deg); }
+  25% { transform: rotate(-3deg); }
+  75% { transform: rotate(3deg); }
+}
+
+@keyframes flash-once {
+  0% { opacity: 1; }
+  50% { opacity: 0.3; }
+  100% { opacity: 1; }
+}
+
 .animate-bounce-in { animation: bounce-in 0.4s cubic-bezier(0.34, 1.56, 0.64, 1); }
 .animate-scale-in { animation: scale-in 0.3s cubic-bezier(0.16, 1, 0.3, 1) both; }
 .animate-ball-pop { animation: ball-pop 0.5s cubic-bezier(0.34, 1.56, 0.64, 1); }
@@ -296,6 +308,8 @@ button, a, [role="button"] {
 .animate-pulse-ring { animation: pulse-ring 2s ease-in-out infinite; }
 .animate-victory-glow { animation: victory-glow 2s ease-in-out infinite; }
 .animate-count-up { animation: count-up 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) both; }
+.animate-wiggle { animation: wiggle 0.3s ease-in-out; }
+.animate-flash-once { animation: flash-once 0.4s ease-out; }
 
 /* ── Gradient Text ───────────────────────────────── */
 .text-gradient-blue {
@@ -331,6 +345,17 @@ button, a, [role="button"] {
   background: rgba(15, 20, 35, 0.5);
   border: 1px solid rgba(255, 255, 255, 0.04);
   box-shadow: 0 2px 16px rgba(0, 0, 0, 0.25);
+}
+
+.stat-card-interactive {
+  background: rgba(15, 20, 35, 0.5);
+  border: 1px solid rgba(255, 255, 255, 0.04);
+  box-shadow: 0 2px 16px rgba(0, 0, 0, 0.25);
+  transition: all 0.15s ease;
+}
+.stat-card-interactive:active {
+  background: rgba(25, 32, 52, 0.6);
+  transform: scale(0.98);
 }
 
 /* ── Shimmer Loader ──────────────────────────────── */
