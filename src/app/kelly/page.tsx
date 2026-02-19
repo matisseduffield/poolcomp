@@ -4,13 +4,21 @@ import { useState, useEffect, useCallback } from "react";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "@convex/_generated/api";
 import { showToast } from "../../components/Toast";
-import { playClick, playCheer, playPocket, playRestore, playEliminate } from "../../lib/sounds";
+import { playClick, playCheer, playPocket, playRestore, playEliminate, playDeal } from "../../lib/sounds";
 import ToastContainer from "../../components/Toast";
 import AmbientBackground from "../../components/AmbientBackground";
 import Confetti from "../../components/Confetti";
 
 // ── Helpers ─────────────────────────────────────────
 const STORAGE_KEY = "kelly-pool-players";
+
+const PLAYER_COLORS = [
+  "#f59e0b", "#3b82f6", "#ef4444", "#22c55e", "#a855f7",
+  "#f97316", "#06b6d4", "#ec4899", "#84cc16", "#6366f1",
+  "#14b8a6", "#f43f5e", "#eab308", "#8b5cf6", "#0ea5e9",
+];
+
+const RACK_ROWS = [[1], [2, 3], [4, 5, 6], [7, 8, 9, 10], [11, 12, 13, 14, 15]];
 
 function loadSavedPlayers(): string[] {
   try {
@@ -78,7 +86,9 @@ function PlayerSetup({ onStart }: { onStart: (names: string[], ballsPerPlayer: n
   };
 
   const validCount = players.filter((n) => n.trim()).length;
-  const canStart = validCount >= 2;
+  const trimmed = players.map(n => n.trim().toLowerCase()).filter(Boolean);
+  const hasDuplicates = trimmed.length !== new Set(trimmed).size;
+  const canStart = validCount >= 2 && !hasDuplicates;
   const maxBalls = validCount >= 2 ? Math.floor(15 / validCount) : 1;
 
   // Clamp ballsPerPlayer if player count changes
@@ -92,18 +102,39 @@ function PlayerSetup({ onStart }: { onStart: (names: string[], ballsPerPlayer: n
       </div>
 
       <div className="space-y-3 mb-5">
-        {players.map((name, idx) => (
+        {players.map((name, idx) => {
+          const isDupe = name.trim() && trimmed.filter(t => t === name.trim().toLowerCase()).length > 1;
+          return (
           <div key={idx} className="flex items-center gap-2">
-            <span className="text-xs font-bold text-slate-500 w-5 text-right tabular-nums">{idx + 1}</span>
+            <div
+              className="w-5 h-5 rounded-full flex-shrink-0 border border-white/10"
+              style={{ background: PLAYER_COLORS[idx % PLAYER_COLORS.length] }}
+            />
             <input
               type="text"
               value={name}
               onChange={(e) => updatePlayer(idx, e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  if (canStart) {
+                    const validNames = players.filter((n) => n.trim());
+                    savePlayers(validNames);
+                    onStart(validNames, effectiveBpp);
+                  } else if (idx === players.length - 1 && players.length < 15) {
+                    addPlayer();
+                  }
+                }
+              }}
               placeholder={`Player ${idx + 1}`}
-              className="flex-1 h-11 rounded-xl bg-slate-800/60 border border-slate-700/40 px-3.5
+              className={`flex-1 h-11 rounded-xl bg-slate-800/60 border px-3.5
                          text-sm text-white placeholder:text-slate-600
-                         focus:outline-none focus:border-amber-500/40 focus:ring-1 focus:ring-amber-500/20
-                         transition-all duration-200"
+                         focus:outline-none focus:ring-1
+                         transition-all duration-200
+                         ${isDupe
+                           ? "border-red-500/50 focus:border-red-500/60 focus:ring-red-500/30"
+                           : "border-slate-700/40 focus:border-amber-500/40 focus:ring-amber-500/20"
+                         }`}
             />
             {players.length > 2 && (
               <button
@@ -118,7 +149,11 @@ function PlayerSetup({ onStart }: { onStart: (names: string[], ballsPerPlayer: n
               </button>
             )}
           </div>
-        ))}
+          );
+        })}
+        {hasDuplicates && (
+          <p className="text-[10px] text-red-400/80 font-medium px-1">Duplicate player names aren&apos;t allowed</p>
+        )}
       </div>
 
       {/* Balls per player selector */}
@@ -315,6 +350,22 @@ function BallRevealFlow({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 backdrop-blur-md">
       <div className="mx-6 max-w-sm w-full rounded-3xl p-8 text-center space-y-5 bg-gradient-to-b from-slate-800/95 to-slate-900/95 border border-slate-600/30 animate-scale-in">
+        {/* Progress dots */}
+        <div className="flex items-center justify-center gap-2">
+          {game.players.map((_, i) => (
+            <div
+              key={i}
+              className={`rounded-full transition-all duration-300 ${
+                i < currentIdx
+                  ? "w-2 h-2 bg-emerald-400"
+                  : i === currentIdx
+                    ? "w-2.5 h-2.5 bg-amber-400 shadow-[0_0_6px_rgba(251,191,36,0.4)]"
+                    : "w-2 h-2 bg-slate-700"
+              }`}
+            />
+          ))}
+        </div>
+
         {!revealed ? (
           <>
             <div className="text-4xl">📱</div>
@@ -531,6 +582,8 @@ function ActiveKellyGame({
             })
             .map((player, idx) => {
             const balls = getPlayerBalls(player);
+            // Find original index for consistent color
+            const origIdx = game.players.findIndex(p => p.name === player.name && p.order === player.order);
             return (
               <div
                 key={idx}
@@ -545,6 +598,13 @@ function ActiveKellyGame({
                 <div className="flex items-center gap-2">
                   {player.name === game.winner && <span className="text-sm">🏆</span>}
                   {player.isEliminated && <span className="text-[10px] text-red-400/60 font-bold">OUT</span>}
+                  <div
+                    className="w-2.5 h-2.5 rounded-full flex-shrink-0"
+                    style={{
+                      background: PLAYER_COLORS[(origIdx >= 0 ? origIdx : idx) % PLAYER_COLORS.length],
+                      opacity: player.isEliminated ? 0.3 : 1,
+                    }}
+                  />
                   <span className={`text-sm font-semibold ${player.isEliminated ? "line-through text-slate-600" : "text-white"}`}>
                     {player.name}
                   </span>
@@ -735,24 +795,45 @@ function ActiveKellyGame({
               }}
             />
           </div>
+
+          {/* Recently pocketed feed */}
+          {game.ballsPocketed.length > 0 && (
+            <div className="flex items-center gap-2 pt-0.5">
+              <span className="text-[9px] text-slate-600 font-bold uppercase tracking-wider shrink-0">Pocketed:</span>
+              <div className="flex items-center gap-1 overflow-x-auto no-scrollbar">
+                {game.ballsPocketed.slice(-8).map((num, i, arr) => (
+                  <div key={`${num}-${i}`} className={`transition-all duration-300 ${i === arr.length - 1 ? "animate-scale-in" : "opacity-50"}`}>
+                    <KellyBall number={num} isPocketed={false} isLowest={false} size="sm" />
+                  </div>
+                ))}
+                {game.ballsPocketed.length > 8 && (
+                  <span className="text-[9px] text-slate-600 font-bold ml-1">+{game.ballsPocketed.length - 8}</span>
+                )}
+              </div>
+            </div>
+          )}
         </div>
 
-        {/* Ball Table */}
+        {/* Ball Table — Triangle Rack */}
         <div>
           <p className="text-[10px] text-slate-500 font-bold uppercase tracking-[0.2em] mb-3 px-1">Tap to pocket · Tap pocketed to undo</p>
-          <div className="grid grid-cols-5 gap-2.5 justify-items-center">
-            {allBalls.map((num) => (
-              <KellyBall
-                key={num}
-                number={num}
-                isPocketed={game.ballsPocketed.includes(num)}
-                isLowest={false}
-                onClick={
-                  game.ballsPocketed.includes(num)
-                    ? () => handleUnpocket(num)
-                    : () => handlePocket(num)
-                }
-              />
+          <div className="flex flex-col items-center gap-2">
+            {RACK_ROWS.map((row, ridx) => (
+              <div key={ridx} className="flex items-center justify-center gap-2">
+                {row.map((num) => (
+                  <KellyBall
+                    key={num}
+                    number={num}
+                    isPocketed={game.ballsPocketed.includes(num)}
+                    isLowest={false}
+                    onClick={
+                      game.ballsPocketed.includes(num)
+                        ? () => handleUnpocket(num)
+                        : () => handlePocket(num)
+                    }
+                  />
+                ))}
+              </div>
             ))}
           </div>
         </div>
@@ -787,6 +868,13 @@ function ActiveKellyGame({
                   `}
                 >
                   <div className="flex items-center gap-3">
+                    <div
+                      className="w-3 h-3 rounded-full flex-shrink-0 border border-white/10"
+                      style={{
+                        background: PLAYER_COLORS[origIdx % PLAYER_COLORS.length],
+                        opacity: player.isEliminated ? 0.3 : 1,
+                      }}
+                    />
                     <span className={`text-base font-bold ${player.isEliminated ? "line-through text-slate-600" : "text-white"}`}>
                       {player.name}
                     </span>
@@ -855,51 +943,103 @@ function ActiveKellyGame({
 function KellyGameHistory() {
   const history = useQuery(api.kelly.getHistory);
 
-  if (!history || history.length === 0) return null;
+  if (!history) return null;
+
+  if (history.length === 0) {
+    return (
+      <div className="glass rounded-3xl p-5 animate-slide-up-d1 text-center">
+        <div className="py-6 space-y-2">
+          <span className="text-3xl">🎱</span>
+          <p className="text-sm text-slate-500 font-medium">No games played yet</p>
+          <p className="text-[10px] text-slate-600">Start a game above to begin tracking!</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Win leaderboard
+  const winCounts: Record<string, number> = {};
+  history.forEach((g) => {
+    if (g.winner) winCounts[g.winner] = (winCounts[g.winner] || 0) + 1;
+  });
+  const leaderboard = Object.entries(winCounts)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 5);
 
   return (
-    <div className="glass rounded-3xl p-5 animate-slide-up-d1">
-      <h2 className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-4 flex items-center gap-2.5">
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" className="text-slate-500">
-          <rect x="3" y="3" width="18" height="18" rx="3" stroke="currentColor" strokeWidth="1.5" />
-          <path d="M8 10h8M8 14h5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-        </svg>
-        Past Games
-      </h2>
-      <ul className="space-y-2 max-h-72 overflow-y-auto pr-1 custom-scrollbar">
-        {history.map((g) => {
-          const duration = g.startedAt && g.endedAt ? formatDuration(g.endedAt - g.startedAt) : null;
-          const ago = g.endedAt ? timeAgo(g.endedAt) : g.startedAt ? timeAgo(g.startedAt) : null;
-          return (
-            <li
-              key={g._id}
-              className="stat-card rounded-xl border-l-[3px] border-l-amber-500/50 px-3.5 py-3"
-            >
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <span className="text-sm">🏆</span>
-                  <span className="text-sm font-bold text-white">{g.winner}</span>
+    <div className="space-y-5 animate-slide-up-d1">
+      {/* Win Leaderboard */}
+      {leaderboard.length > 1 && (
+        <div className="glass rounded-3xl p-5">
+          <h2 className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-3 flex items-center gap-2.5">
+            <span className="text-base">👑</span>
+            Leaderboard
+          </h2>
+          <div className="space-y-1.5">
+            {leaderboard.map(([name, wins], idx) => (
+              <div key={name} className="flex items-center justify-between px-3 py-2 rounded-lg stat-card">
+                <div className="flex items-center gap-2.5">
+                  <span className={`text-sm font-black tabular-nums w-5 text-right ${
+                    idx === 0 ? "text-amber-400" : idx === 1 ? "text-slate-400" : idx === 2 ? "text-orange-700" : "text-slate-600"
+                  }`}>
+                    {idx + 1}
+                  </span>
+                  <span className="text-sm font-bold text-white">{name}</span>
                 </div>
-                <div className="flex items-center gap-2 text-[10px] text-slate-600 font-medium">
-                  {g.ballsPocketed && (
-                    <span>{g.ballsPocketed.length} balls</span>
-                  )}
-                  <span>{g.players.length}p</span>
-                  {g.ballsPerPlayer && g.ballsPerPlayer > 1 && (
-                    <span>×{g.ballsPerPlayer}</span>
-                  )}
-                </div>
+                <span className={`text-sm font-extrabold tabular-nums ${idx === 0 ? "text-amber-400" : "text-slate-500"}`}>
+                  {wins} win{wins !== 1 ? "s" : ""}
+                </span>
               </div>
-              {(duration || ago) && (
-                <div className="flex items-center gap-2 mt-1.5 text-[10px] text-slate-600">
-                  {duration && <span>⏱ {duration}</span>}
-                  {ago && <span className="ml-auto">{ago}</span>}
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Past Games */}
+      <div className="glass rounded-3xl p-5">
+        <h2 className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-4 flex items-center gap-2.5">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" className="text-slate-500">
+            <rect x="3" y="3" width="18" height="18" rx="3" stroke="currentColor" strokeWidth="1.5" />
+            <path d="M8 10h8M8 14h5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+          </svg>
+          Past Games
+          <span className="text-[10px] text-slate-600 font-medium ml-auto normal-case tracking-normal">{history.length} played</span>
+        </h2>
+        <ul className="space-y-2 max-h-72 overflow-y-auto pr-1 custom-scrollbar">
+          {history.map((g) => {
+            const duration = g.startedAt && g.endedAt ? formatDuration(g.endedAt - g.startedAt) : null;
+            const ago = g.endedAt ? timeAgo(g.endedAt) : g.startedAt ? timeAgo(g.startedAt) : null;
+            return (
+              <li
+                key={g._id}
+                className="stat-card rounded-xl border-l-[3px] border-l-amber-500/50 px-3.5 py-3"
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <span className="text-sm">🏆</span>
+                    <span className="text-sm font-bold text-white">{g.winner}</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-[10px] text-slate-600 font-medium">
+                    {g.ballsPocketed && (
+                      <span>{g.ballsPocketed.length} balls</span>
+                    )}
+                    <span>{g.players.length}p</span>
+                    {g.ballsPerPlayer && g.ballsPerPlayer > 1 && (
+                      <span>×{g.ballsPerPlayer}</span>
+                    )}
+                  </div>
                 </div>
-              )}
-            </li>
-          );
-        })}
-      </ul>
+                {(duration || ago) && (
+                  <div className="flex items-center gap-2 mt-1.5 text-[10px] text-slate-600">
+                    {duration && <span>⏱ {duration}</span>}
+                    {ago && <span className="ml-auto">{ago}</span>}
+                  </div>
+                )}
+              </li>
+            );
+          })}
+        </ul>
+      </div>
     </div>
   );
 }
@@ -910,7 +1050,7 @@ export default function KellyPoolPage() {
   const [showNewSetup, setShowNewSetup] = useState(false);
 
   const handleStart = async (names: string[], ballsPerPlayer: number) => {
-    playClick();
+    playDeal();
     setShowNewSetup(false);
     try {
       await createGame({ playerNames: names, ballsPerPlayer });

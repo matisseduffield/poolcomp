@@ -40,6 +40,15 @@ button, a, [role="button"] {
   touch-action: manipulation;
 }
 
+/* Hide scrollbar but keep scrolling */
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
 /* ── Glass Cards ─────────────────────────────────── */
 .glass {
   background: rgba(15, 20, 35, 0.65);

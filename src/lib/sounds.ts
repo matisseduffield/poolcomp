@@ -188,3 +188,47 @@ export function playUndo() {
     // Silently fail
   }
 }
+
+/** Card-shuffle / deal sound — rapid staccato clicks */
+export function playDeal() {
+  vibrate([10, 5, 10, 5, 10, 5, 10]);
+  try {
+    const ctx = getAudioContext();
+    const now = ctx.currentTime;
+
+    // 5 rapid clicks simulating card/ball shuffle
+    for (let i = 0; i < 5; i++) {
+      const t = now + i * 0.06;
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+
+      osc.type = "triangle";
+      osc.frequency.setValueAtTime(900 + Math.random() * 400, t);
+      osc.frequency.exponentialRampToValueAtTime(500, t + 0.04);
+
+      gain.gain.setValueAtTime(0.08, t);
+      gain.gain.exponentialRampToValueAtTime(0.001, t + 0.05);
+
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(t);
+      osc.stop(t + 0.05);
+    }
+
+    // Finishing "thud" after the shuffle
+    const osc2 = ctx.createOscillator();
+    const gain2 = ctx.createGain();
+    const finishT = now + 0.35;
+    osc2.type = "sine";
+    osc2.frequency.setValueAtTime(200, finishT);
+    osc2.frequency.exponentialRampToValueAtTime(100, finishT + 0.12);
+    gain2.gain.setValueAtTime(0.15, finishT);
+    gain2.gain.exponentialRampToValueAtTime(0.001, finishT + 0.15);
+    osc2.connect(gain2);
+    gain2.connect(ctx.destination);
+    osc2.start(finishT);
+    osc2.stop(finishT + 0.15);
+  } catch {
+    // Silently fail
+  }
+}
