@@ -41,7 +41,7 @@ export default function ConfirmDialog({
       <div
         ref={dialogRef}
         tabIndex={-1}
-        className="glass-card-elevated rounded-t-3xl sm:rounded-2xl p-6 pb-8 sm:pb-6 max-w-sm w-full safe-bottom
+        className="glass-elevated rounded-t-3xl sm:rounded-3xl p-6 pb-8 sm:pb-6 max-w-sm w-full safe-bottom
                    animate-bounce-in"
         onClick={(e) => e.stopPropagation()}
       >

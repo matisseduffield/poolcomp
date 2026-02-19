@@ -37,10 +37,10 @@ export default function ToastContainer() {
       {toasts.map((toast) => {
         const style =
           toast.type === "success"
-            ? "bg-emerald-500/90 border-emerald-400/20"
+            ? "bg-emerald-500/90 border-emerald-400/20 shadow-emerald-500/20"
             : toast.type === "undo"
-              ? "bg-amber-500/90 border-amber-400/20"
-              : "bg-slate-700/90 border-slate-600/20";
+              ? "bg-amber-500/90 border-amber-400/20 shadow-amber-500/20"
+              : "bg-slate-700/90 border-slate-600/20 shadow-slate-700/20";
 
         return (
           <div

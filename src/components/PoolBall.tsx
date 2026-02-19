@@ -12,9 +12,9 @@ export default function PoolBall({ number, winner }: PoolBallProps) {
   const gradId = `ball-${number}-${winner ?? "empty"}`;
 
   const colors = {
-    matisse: { start: "#60a5fa", mid: "#3b82f6", end: "#1d4ed8", glow: "rgba(59, 130, 246, 0.5)" },
-    joe:     { start: "#f87171", mid: "#ef4444", end: "#b91c1c", glow: "rgba(239, 68, 68, 0.5)" },
-    empty:   { start: "#1e293b", mid: "#0f172a", end: "#0a0e1a", glow: "none" },
+    matisse: { start: "#60a5fa", mid: "#3b82f6", end: "#1d4ed8", glow: "rgba(59, 130, 246, 0.55)" },
+    joe:     { start: "#f87171", mid: "#ef4444", end: "#b91c1c", glow: "rgba(239, 68, 68, 0.55)" },
+    empty:   { start: "#151b2e", mid: "#0c1020", end: "#050810", glow: "none" },
   };
 
   const c = colors[winner ?? "empty"];
@@ -88,12 +88,9 @@ export default function PoolBall({ number, winner }: PoolBallProps) {
           />
         </svg>
       </div>
-      {winner && (
-        <span
-          className="text-[9px] font-bold uppercase tracking-[0.12em] mt-0.5"
-          style={{ color: c.start }}
-        >
-          {winner === "matisse" ? "Matisse" : "Joe"}
+      {!isActive && (
+        <span className="text-[9px] font-bold text-slate-700 tabular-nums mt-0.5">
+          {number}
         </span>
       )}
     </div>

@@ -10,12 +10,15 @@ export default function Leaderboard() {
 
   if (scores === undefined || lifetime === undefined) {
     return (
-      <section className="glass-card rounded-2xl p-5 animate-fade-in">
-        <h2 className="text-base font-bold text-white mb-5 flex items-center gap-2">
-          <span className="text-lg">🏆</span> Leaderboard
+      <section className="glass rounded-3xl p-6 animate-fade-in">
+        <h2 className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-5 flex items-center gap-2.5">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" className="text-amber-400">
+            <path d="M12 2L15 8.5L22 9.5L17 14.5L18 21.5L12 18L6 21.5L7 14.5L2 9.5L9 8.5L12 2Z" fill="currentColor" />
+          </svg>
+          Standings
         </h2>
         <div className="flex items-center justify-center py-10">
-          <div className="w-7 h-7 border-[3px] border-amber-400/80 border-t-transparent rounded-full animate-spin" />
+          <div className="w-8 h-8 border-[3px] border-amber-400/70 border-t-transparent rounded-full animate-spin" />
         </div>
       </section>
     );
@@ -29,62 +32,74 @@ export default function Leaderboard() {
 
   const matisseLeads = scores.matisseSessions > scores.joeSessions;
   const joeLeads = scores.joeSessions > scores.matisseSessions;
+  const tied = scores.matisseSessions === scores.joeSessions;
+
+  const totalGames = lifetime.matisseGames + lifetime.joeGames;
+  const matisseGamePct = totalGames > 0 ? Math.round((lifetime.matisseGames / totalGames) * 100) : 50;
 
   return (
-    <section className="glass-card rounded-2xl p-5 animate-slide-up">
-      <h2 className="text-base font-bold text-white mb-5 flex items-center gap-2">
-        <span className="text-lg">🏆</span> Leaderboard
+    <section className="glass rounded-3xl p-5 animate-slide-up-d1">
+      <h2 className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-5 flex items-center gap-2.5">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" className="text-amber-400">
+          <path d="M12 2L15 8.5L22 9.5L17 14.5L18 21.5L12 18L6 21.5L7 14.5L2 9.5L9 8.5L12 2Z" fill="currentColor" />
+        </svg>
+        Standings
       </h2>
 
-      {/* Session Score — big & bold */}
-      <div className="flex items-center justify-center mb-4">
-        {/* Matisse side */}
-        <div className="flex-1 text-center">
-          <p className="text-[11px] font-bold uppercase tracking-[0.15em] text-blue-400/60 mb-1">
-            Matisse
+      {/* Main Score Cards */}
+      <div className="grid grid-cols-2 gap-3 mb-4">
+        {/* Matisse */}
+        <div className={`relative stat-card rounded-2xl p-4 text-center overflow-hidden ${matisseLeads ? "ring-1 ring-blue-500/20" : ""}`}>
+          {matisseLeads && (
+            <div className="absolute top-2 right-2 animate-crown">
+              <span className="text-sm">👑</span>
+            </div>
+          )}
+          <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-blue-400/60 mb-2">Matisse</p>
+          <span className="text-4xl font-black text-gradient-blue score-display block">
+            {scores.matisseSessions}
+          </span>
+          <p className="text-[10px] text-slate-600 font-semibold mt-1">
+            {totalSessions > 0
+              ? `${matisseWinPct}% win rate`
+              : "sessions"}
           </p>
-          <div className="relative inline-block">
-            <span className="text-5xl sm:text-6xl font-black text-gradient-blue leading-none tabular-nums">
-              {scores.matisseSessions}
-            </span>
-            {matisseLeads && (
-              <span className="absolute -top-3 -right-4 text-[10px]">👑</span>
-            )}
-          </div>
+          {matisseLeads && (
+            <div className="absolute inset-0 bg-gradient-to-t from-blue-500/[0.03] to-transparent pointer-events-none" />
+          )}
         </div>
 
-        {/* Divider */}
-        <div className="flex flex-col items-center px-4">
-          <div className="w-[1px] h-5 bg-slate-700/50" />
-          <span className="text-[10px] font-bold text-slate-600 uppercase my-1">vs</span>
-          <div className="w-[1px] h-5 bg-slate-700/50" />
-        </div>
-
-        {/* Joe side */}
-        <div className="flex-1 text-center">
-          <p className="text-[11px] font-bold uppercase tracking-[0.15em] text-red-400/60 mb-1">
-            Joe
+        {/* Joe */}
+        <div className={`relative stat-card rounded-2xl p-4 text-center overflow-hidden ${joeLeads ? "ring-1 ring-red-500/20" : ""}`}>
+          {joeLeads && (
+            <div className="absolute top-2 right-2 animate-crown">
+              <span className="text-sm">👑</span>
+            </div>
+          )}
+          <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-red-400/60 mb-2">Joe</p>
+          <span className="text-4xl font-black text-gradient-red score-display block">
+            {scores.joeSessions}
+          </span>
+          <p className="text-[10px] text-slate-600 font-semibold mt-1">
+            {totalSessions > 0
+              ? `${100 - matisseWinPct}% win rate`
+              : "sessions"}
           </p>
-          <div className="relative inline-block">
-            <span className="text-5xl sm:text-6xl font-black text-gradient-red leading-none tabular-nums">
-              {scores.joeSessions}
-            </span>
-            {joeLeads && (
-              <span className="absolute -top-3 -right-4 text-[10px]">👑</span>
-            )}
-          </div>
+          {joeLeads && (
+            <div className="absolute inset-0 bg-gradient-to-t from-red-500/[0.03] to-transparent pointer-events-none" />
+          )}
         </div>
       </div>
 
-      {/* Win percentage bar */}
+      {/* Session Win Bar */}
       {totalSessions > 0 && (
-        <div className="mb-5">
-          <div className="h-1.5 rounded-full bg-slate-800 overflow-hidden flex">
+        <div className="mb-5 px-1">
+          <div className="h-2 rounded-full bg-slate-800/80 overflow-hidden flex gap-[2px]">
             <div
               className="h-full rounded-full transition-all duration-700 ease-out"
               style={{
                 width: `${matisseWinPct}%`,
-                background: "linear-gradient(90deg, #60a5fa, #3b82f6)",
+                background: "linear-gradient(90deg, #1d4ed8, #60a5fa)",
               }}
             />
             <div
@@ -95,57 +110,49 @@ export default function Leaderboard() {
               }}
             />
           </div>
-          <div className="flex justify-between mt-1.5">
-            <span className="text-[10px] text-blue-400/50 font-semibold tabular-nums">
-              {matisseWinPct}%
+          <div className="flex justify-between mt-1.5 px-0.5">
+            <span className="text-[10px] text-blue-400/50 font-bold tabular-nums">{matisseWinPct}%</span>
+            <span className="text-[10px] text-slate-600 font-bold uppercase tracking-[0.25em]">
+              {tied ? "Tied" : "Sessions"}
             </span>
-            <span className="text-[10px] text-slate-600 font-semibold uppercase tracking-[0.2em]">
-              Sessions
-            </span>
-            <span className="text-[10px] text-red-400/50 font-semibold tabular-nums">
-              {100 - matisseWinPct}%
-            </span>
+            <span className="text-[10px] text-red-400/50 font-bold tabular-nums">{100 - matisseWinPct}%</span>
           </div>
         </div>
       )}
 
       {totalSessions === 0 && (
-        <p className="text-center text-[10px] uppercase tracking-[0.2em] text-slate-600 mb-5 font-semibold">
-          Session Wins
-        </p>
+        <div className="section-divider my-4" />
       )}
 
-      {/* Stats grid */}
-      <div className="grid grid-cols-2 gap-2.5">
-        {/* Lifetime Games */}
-        <div className="stat-card rounded-xl p-3.5">
-          <p className="text-[10px] text-slate-500 mb-2 font-semibold uppercase tracking-[0.15em]">
-            Games Won
-          </p>
-          <div className="flex items-baseline gap-1.5">
-            <span className="text-lg font-black text-gradient-blue tabular-nums">
-              {lifetime.matisseGames}
-            </span>
-            <span className="text-slate-700 text-[10px] font-bold">vs</span>
-            <span className="text-lg font-black text-gradient-red tabular-nums">
-              {lifetime.joeGames}
-            </span>
+      {/* Stats Grid */}
+      <div className="grid grid-cols-3 gap-2">
+        {/* Games Won */}
+        <div className="stat-card rounded-xl p-3 text-center">
+          <p className="text-[9px] text-slate-500 font-bold uppercase tracking-[0.15em] mb-1.5">Games</p>
+          <div className="flex items-baseline justify-center gap-1">
+            <span className="text-base font-black text-gradient-blue tabular-nums">{lifetime.matisseGames}</span>
+            <span className="text-slate-700 text-[9px] font-bold">-</span>
+            <span className="text-base font-black text-gradient-red tabular-nums">{lifetime.joeGames}</span>
           </div>
         </div>
 
-        {/* Best Streaks */}
-        <div className="stat-card rounded-xl p-3.5">
-          <p className="text-[10px] text-slate-500 mb-2 font-semibold uppercase tracking-[0.15em]">
-            Best Streak
-          </p>
-          <div className="flex items-baseline gap-1.5">
-            <span className="text-lg font-black text-gradient-blue tabular-nums">
-              {streaks?.bestMatisse ?? 0}
-            </span>
-            <span className="text-slate-700 text-[10px] font-bold">vs</span>
-            <span className="text-lg font-black text-gradient-red tabular-nums">
-              {streaks?.bestJoe ?? 0}
-            </span>
+        {/* Game Win Rate */}
+        <div className="stat-card rounded-xl p-3 text-center">
+          <p className="text-[9px] text-slate-500 font-bold uppercase tracking-[0.15em] mb-1.5">Game %</p>
+          <div className="flex items-baseline justify-center gap-1">
+            <span className="text-base font-black text-gradient-blue tabular-nums">{matisseGamePct}</span>
+            <span className="text-slate-700 text-[9px] font-bold">-</span>
+            <span className="text-base font-black text-gradient-red tabular-nums">{100 - matisseGamePct}</span>
+          </div>
+        </div>
+
+        {/* Best Streak */}
+        <div className="stat-card rounded-xl p-3 text-center">
+          <p className="text-[9px] text-slate-500 font-bold uppercase tracking-[0.15em] mb-1.5">Streak</p>
+          <div className="flex items-baseline justify-center gap-1">
+            <span className="text-base font-black text-gradient-blue tabular-nums">{streaks?.bestMatisse ?? 0}</span>
+            <span className="text-slate-700 text-[9px] font-bold">-</span>
+            <span className="text-base font-black text-gradient-red tabular-nums">{streaks?.bestJoe ?? 0}</span>
           </div>
         </div>
       </div>

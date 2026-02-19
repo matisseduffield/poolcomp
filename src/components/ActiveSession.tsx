@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "@convex/_generated/api";
 import PoolBall from "./PoolBall";
+import ScoreRing from "./ScoreRing";
 import ConfirmDialog from "./ConfirmDialog";
 import { showToast } from "./Toast";
 import { playClick, playCheer, playUndo } from "../lib/sounds";
@@ -97,33 +98,41 @@ export default function ActiveSession() {
     showToast("New session started! 🎱", "success");
   };
 
-  // Loading state
+  // ── Loading ──────────────────────────────────────
   if (activeSession === undefined) {
     return (
-      <section className="glass-card rounded-2xl p-5 animate-fade-in">
+      <section className="glass rounded-3xl p-6 animate-fade-in">
         <div className="flex items-center gap-2.5 mb-6">
-          <div className="w-2 h-2 rounded-full bg-slate-600" />
-          <h2 className="text-base font-bold text-white">Active Session</h2>
+          <div className="w-2 h-2 rounded-full bg-slate-700" />
+          <h2 className="text-sm font-bold text-slate-400 uppercase tracking-wider">Active Session</h2>
         </div>
-        <div className="flex items-center justify-center py-10">
-          <div className="w-7 h-7 border-[3px] border-amber-400/80 border-t-transparent rounded-full animate-spin" />
+        <div className="flex items-center justify-center py-12">
+          <div className="w-8 h-8 border-[3px] border-amber-400/70 border-t-transparent rounded-full animate-spin" />
         </div>
       </section>
     );
   }
 
-  // No active session — show start button
+  // ── No active session ────────────────────────────
   if (activeSession === null) {
     return (
-      <section className="glass-card rounded-2xl p-5 animate-slide-up">
-        <div className="flex items-center gap-2.5 mb-4">
-          <div className="w-2 h-2 rounded-full bg-slate-600" />
-          <h2 className="text-base font-bold text-white">Active Session</h2>
+      <section className="glass rounded-3xl p-6 animate-slide-up text-center">
+        <div className="flex items-center justify-center gap-2.5 mb-6">
+          <div className="w-2 h-2 rounded-full bg-slate-700" />
+          <h2 className="text-sm font-bold text-slate-400 uppercase tracking-wider">Active Session</h2>
         </div>
-        <p className="text-slate-400 text-sm mb-5 text-center">No session in progress</p>
+        <div className="py-4">
+          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-slate-800/50 mb-4">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" className="text-slate-500">
+              <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="1.5" />
+              <path d="M12 8v4l3 3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+            </svg>
+          </div>
+          <p className="text-slate-500 text-sm mb-6">No session in progress</p>
+        </div>
         <button
           onClick={handleNewSession}
-          className="w-full h-14 rounded-2xl btn-accent text-base font-bold
+          className="w-full h-14 rounded-2xl btn-accent text-base font-extrabold
                      active:scale-[0.97] transition-all duration-150
                      cursor-pointer animate-glow-pulse"
         >
@@ -133,50 +142,61 @@ export default function ActiveSession() {
     );
   }
 
+  // ── Active session ───────────────────────────────
   return (
-    <section className="glass-card-elevated rounded-2xl p-5 animate-slide-up">
-      {/* Header row */}
+    <section className="glass-elevated rounded-3xl p-5 animate-slide-up">
+      {/* Header */}
       <div className="flex items-center justify-between mb-5">
         <div className="flex items-center gap-2.5">
-          <div className="w-2 h-2 rounded-full bg-emerald-400 animate-live-dot" />
-          <h2 className="text-base font-bold text-white">Live Session</h2>
+          <div className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-live-dot" />
+          <h2 className="text-sm font-bold text-emerald-400/90 uppercase tracking-wider">Live</h2>
         </div>
         {totalPlayed > 0 && sessionActive && (
-          <span className="text-[11px] text-slate-500 font-semibold bg-slate-800/60 px-2.5 py-1 rounded-full">
-            GAME {totalPlayed + 1} OF 5
+          <span className="text-[11px] text-slate-400 font-bold bg-slate-800/70 px-3 py-1 rounded-full border border-slate-700/40">
+            GAME {totalPlayed + 1} / 5
           </span>
         )}
       </div>
 
-      {/* Score Display */}
-      <div className="flex items-center justify-center gap-4 mb-5">
-        <div className="flex-1 text-center">
-          <p className="text-[11px] font-bold uppercase tracking-[0.15em] text-blue-400/70 mb-1">
-            Matisse
-          </p>
-          <span className="text-5xl font-black text-gradient-blue tabular-nums leading-none">
-            {activeSession.matisseWins}
-          </span>
+      {/* Score Rings */}
+      <div className="flex items-center justify-center gap-3 mb-5">
+        <div className="flex-1 flex flex-col items-center">
+          <ScoreRing
+            score={activeSession.matisseWins}
+            maxScore={3}
+            color="blue"
+            label="Matisse"
+            size={110}
+          />
         </div>
-        <div className="flex flex-col items-center px-3">
-          <div className="w-px h-6 bg-slate-700/60 mb-1.5" />
-          <span className="text-[10px] font-bold text-slate-600 uppercase">vs</span>
-          <div className="w-px h-6 bg-slate-700/60 mt-1.5" />
+
+        {/* VS divider */}
+        <div className="flex flex-col items-center gap-1">
+          <div className="w-px h-8 bg-gradient-to-b from-transparent via-slate-600/40 to-transparent" />
+          <span className="text-[11px] font-black text-slate-600 uppercase">vs</span>
+          <div className="w-px h-8 bg-gradient-to-b from-transparent via-slate-600/40 to-transparent" />
         </div>
-        <div className="flex-1 text-center">
-          <p className="text-[11px] font-bold uppercase tracking-[0.15em] text-red-400/70 mb-1">
-            Joe
-          </p>
-          <span className="text-5xl font-black text-gradient-red tabular-nums leading-none">
-            {activeSession.joeWins}
-          </span>
+
+        <div className="flex-1 flex flex-col items-center">
+          <ScoreRing
+            score={activeSession.joeWins}
+            maxScore={3}
+            color="red"
+            label="Joe"
+            size={110}
+          />
         </div>
       </div>
 
-      {/* Pool Balls */}
-      <div className="flex items-center justify-center gap-1.5 sm:gap-3 mb-6 px-1">
+      {/* Pool Balls timeline */}
+      <div className="flex items-center justify-center gap-2 sm:gap-3 mb-6 px-2">
         {balls.map((ball, i) => (
-          <PoolBall key={i} number={i + 1} winner={ball.winner} />
+          <div key={i} className="flex flex-col items-center gap-1.5">
+            <PoolBall number={i + 1} winner={ball.winner} />
+            {i < 4 && (
+              <div className="w-3 h-px bg-slate-700/40 hidden sm:block absolute" style={{ marginLeft: "58px" }} />
+            )}
+          </div>
         ))}
       </div>
 
@@ -187,30 +207,38 @@ export default function ActiveSession() {
             onClick={() => handleRecordWin("matisse")}
             disabled={isRecording}
             className="h-[56px] rounded-2xl btn-matisse text-white text-[15px] font-bold
-                       active:scale-[0.96] transition-all duration-150
-                       cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+                       transition-all duration-150
+                       cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed
+                       flex items-center justify-center gap-2"
           >
-            Matisse Wins
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" className="opacity-60">
+              <path d="M12 2l3.09 6.26L22 9.27l-5 4.87L18.18 21 12 17.27 5.82 21 7 14.14l-5-4.87 6.91-1.01L12 2z" fill="currentColor" />
+            </svg>
+            Matisse
           </button>
           <button
             onClick={() => handleRecordWin("joe")}
             disabled={isRecording}
             className="h-[56px] rounded-2xl btn-joe text-white text-[15px] font-bold
-                       active:scale-[0.96] transition-all duration-150
-                       cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+                       transition-all duration-150
+                       cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed
+                       flex items-center justify-center gap-2"
           >
-            Joe Wins
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" className="opacity-60">
+              <path d="M12 2l3.09 6.26L22 9.27l-5 4.87L18.18 21 12 17.27 5.82 21 7 14.14l-5-4.87 6.91-1.01L12 2z" fill="currentColor" />
+            </svg>
+            Joe
           </button>
         </div>
       )}
 
-      {/* Undo + End Session row */}
+      {/* Undo + End Session */}
       {totalPlayed > 0 && sessionActive && (
         <div className="grid grid-cols-[auto_1fr] gap-2.5">
           <button
             onClick={handleUndo}
             className="h-11 px-4 rounded-xl btn-ghost text-slate-400 text-sm font-medium
-                       active:scale-[0.96] transition-all duration-150
+                       transition-all duration-150
                        cursor-pointer flex items-center justify-center gap-1.5"
           >
             <svg width="14" height="14" viewBox="0 0 16 16" fill="none" className="shrink-0">
@@ -227,7 +255,7 @@ export default function ActiveSession() {
           <button
             onClick={() => setShowEndConfirm(true)}
             className="h-11 rounded-xl btn-ghost text-amber-400/80 text-sm font-medium
-                       active:scale-[0.96] transition-all duration-150
+                       transition-all duration-150
                        cursor-pointer"
           >
             End Session Early
@@ -235,19 +263,19 @@ export default function ActiveSession() {
         </div>
       )}
 
-      {/* Session just completed — start new one */}
+      {/* Session completed — start new */}
       {!sessionActive && activeSession.status === "active" && totalPlayed >= 5 && (
         <button
           onClick={handleNewSession}
-          className="w-full h-14 rounded-2xl btn-accent text-base font-bold
-                     active:scale-[0.97] transition-all duration-150
+          className="w-full h-14 rounded-2xl btn-accent text-base font-extrabold
+                     transition-all duration-150
                      cursor-pointer mt-3 animate-glow-pulse"
         >
           Start Next Session
         </button>
       )}
 
-      {/* Confirm End Session Dialog */}
+      {/* Confirm End */}
       <ConfirmDialog
         open={showEndConfirm}
         title="End Session Early?"
