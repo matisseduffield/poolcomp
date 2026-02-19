@@ -20,8 +20,10 @@ export default function ActiveSession() {
   const recordWin = useMutation(api.games.recordWin);
   const endEarly = useMutation(api.sessions.endEarly);
   const undoLast = useMutation(api.games.undoLast);
+  const cancelSession = useMutation(api.sessions.cancelSession);
 
   const [showEndConfirm, setShowEndConfirm] = useState(false);
+  const [showCancelConfirm, setShowCancelConfirm] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const [confettiActive, setConfettiActive] = useState(false);
 
@@ -100,6 +102,14 @@ export default function ActiveSession() {
     playClick();
     await createSession();
     showToast("New session started! 🎱", "success");
+  };
+
+  const handleCancelSession = async () => {
+    if (!activeSession) return;
+    setShowCancelConfirm(false);
+    playClick();
+    await cancelSession({ sessionId: activeSession._id });
+    showToast("Session cancelled — no points awarded", "info");
   };
 
   // ── Loading ──────────────────────────────────────
@@ -236,33 +246,47 @@ export default function ActiveSession() {
         </div>
       )}
 
-      {/* Undo + End Session */}
-      {totalPlayed > 0 && sessionActive && (
-        <div className="grid grid-cols-[auto_1fr] gap-2.5">
+      {/* Undo + End Session + Cancel */}
+      {sessionActive && (
+        <div className="flex flex-wrap items-center gap-2">
+          {totalPlayed > 0 && (
+            <button
+              onClick={handleUndo}
+              className="h-11 px-4 rounded-xl btn-ghost text-slate-400 text-sm font-medium
+                         transition-all duration-150
+                         cursor-pointer flex items-center justify-center gap-1.5"
+            >
+              <svg width="14" height="14" viewBox="0 0 16 16" fill="none" className="shrink-0">
+                <path
+                  d="M3 8h10M3 8l3-3M3 8l3 3"
+                  stroke="currentColor"
+                  strokeWidth="1.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
+              Undo
+            </button>
+          )}
+          {totalPlayed > 0 && (
+            <button
+              onClick={() => setShowEndConfirm(true)}
+              className="h-11 px-4 rounded-xl btn-ghost text-amber-400/80 text-sm font-medium
+                         transition-all duration-150 cursor-pointer"
+            >
+              End Early
+            </button>
+          )}
           <button
-            onClick={handleUndo}
-            className="h-11 px-4 rounded-xl btn-ghost text-slate-400 text-sm font-medium
-                       transition-all duration-150
-                       cursor-pointer flex items-center justify-center gap-1.5"
+            onClick={() => setShowCancelConfirm(true)}
+            className="h-11 px-4 rounded-xl btn-ghost text-red-400/70 text-sm font-medium
+                       transition-all duration-150 cursor-pointer ml-auto
+                       flex items-center gap-1.5"
           >
             <svg width="14" height="14" viewBox="0 0 16 16" fill="none" className="shrink-0">
-              <path
-                d="M3 8h10M3 8l3-3M3 8l3 3"
-                stroke="currentColor"
-                strokeWidth="1.5"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
+              <path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
             </svg>
-            Undo
-          </button>
-          <button
-            onClick={() => setShowEndConfirm(true)}
-            className="h-11 rounded-xl btn-ghost text-amber-400/80 text-sm font-medium
-                       transition-all duration-150
-                       cursor-pointer"
-          >
-            End Session Early
+            Cancel
           </button>
         </div>
       )}
@@ -293,6 +317,18 @@ export default function ActiveSession() {
         confirmColor="btn-accent"
         onConfirm={handleEndEarly}
         onCancel={() => setShowEndConfirm(false)}
+      />
+
+      {/* Confirm Cancel */}
+      <ConfirmDialog
+        open={showCancelConfirm}
+        title="Cancel Session?"
+        message="This will discard the entire session. No points will be awarded to either player."
+        confirmLabel="Cancel Session"
+        cancelLabel="Keep Playing"
+        confirmColor="btn-ghost"
+        onConfirm={handleCancelSession}
+        onCancel={() => setShowCancelConfirm(false)}
       />
     </section>
   );

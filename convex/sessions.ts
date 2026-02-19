@@ -155,3 +155,29 @@ export const getStreaks = query({
     return { currentStreak, streakHolder, bestMatisse, bestJoe };
   },
 });
+
+// Cancel (discard) the active session — no points awarded, games deleted
+export const cancelSession = mutation({
+  args: { sessionId: v.id("sessions") },
+  handler: async (ctx, { sessionId }) => {
+    const session = await ctx.db.get(sessionId);
+    if (!session || session.status !== "active") {
+      throw new Error("No active session to cancel");
+    }
+
+    // Delete all games associated with this session
+    const games = await ctx.db
+      .query("games")
+      .withIndex("by_session", (q) => q.eq("sessionId", sessionId))
+      .collect();
+
+    for (const game of games) {
+      await ctx.db.delete(game._id);
+    }
+
+    // Mark session as cancelled (not completed — no winner)
+    await ctx.db.patch(sessionId, {
+      status: "cancelled" as const,
+    });
+  },
+});

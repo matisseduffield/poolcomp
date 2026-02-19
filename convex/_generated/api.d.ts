@@ -9,6 +9,7 @@
  */
 
 import type * as games from "../games.js";
+import type * as kelly from "../kelly.js";
 import type * as sessions from "../sessions.js";
 
 import type {
@@ -19,6 +20,7 @@ import type {
 
 declare const fullApi: ApiFromModules<{
   games: typeof games;
+  kelly: typeof kelly;
   sessions: typeof sessions;
 }>;
 
