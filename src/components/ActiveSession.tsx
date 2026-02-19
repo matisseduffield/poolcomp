@@ -6,6 +6,7 @@ import { api } from "@convex/_generated/api";
 import PoolBall from "./PoolBall";
 import ScoreRing from "./ScoreRing";
 import ConfirmDialog from "./ConfirmDialog";
+import Confetti from "./Confetti";
 import { showToast } from "./Toast";
 import { playClick, playCheer, playUndo } from "../lib/sounds";
 
@@ -22,6 +23,7 @@ export default function ActiveSession() {
 
   const [showEndConfirm, setShowEndConfirm] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
+  const [confettiActive, setConfettiActive] = useState(false);
 
   // Build ball states from games
   const balls: Array<{ winner: "matisse" | "joe" | null }> = Array.from(
@@ -57,6 +59,8 @@ export default function ActiveSession() {
       });
       if (result.isComplete) {
         playCheer();
+        setConfettiActive(true);
+        setTimeout(() => setConfettiActive(false), 3500);
         const winnerName = winner === "matisse" ? "Matisse" : "Joe";
         showToast(`${winnerName} wins the session! 🎉`, "success");
       }
@@ -191,14 +195,14 @@ export default function ActiveSession() {
       {/* Pool Balls timeline */}
       <div className="flex items-center justify-center gap-2 sm:gap-3 mb-6 px-2">
         {balls.map((ball, i) => (
-          <div key={i} className="flex flex-col items-center gap-1.5">
-            <PoolBall number={i + 1} winner={ball.winner} />
-            {i < 4 && (
-              <div className="w-3 h-px bg-slate-700/40 hidden sm:block absolute" style={{ marginLeft: "58px" }} />
-            )}
+          <div key={i} className="flex flex-col items-center gap-1.5 ball-connector">
+            <PoolBall number={i + 1} winner={ball.winner} isNext={!!sessionActive && i === totalPlayed} />
           </div>
         ))}
       </div>
+
+      {/* Confetti celebration */}
+      <Confetti active={confettiActive} />
 
       {/* Win Buttons */}
       {sessionActive && (

@@ -3,94 +3,112 @@
 interface PoolBallProps {
   number: number;
   winner: "matisse" | "joe" | null;
+  isNext?: boolean;
 }
 
-export default function PoolBall({ number, winner }: PoolBallProps) {
+export default function PoolBall({ number, winner, isNext }: PoolBallProps) {
   const isActive = winner !== null;
 
-  // Gradient stops for each state
   const gradId = `ball-${number}-${winner ?? "empty"}`;
+  const shadowId = `ball-shadow-${number}`;
 
   const colors = {
-    matisse: { start: "#60a5fa", mid: "#3b82f6", end: "#1d4ed8", glow: "rgba(59, 130, 246, 0.55)" },
-    joe:     { start: "#f87171", mid: "#ef4444", end: "#b91c1c", glow: "rgba(239, 68, 68, 0.55)" },
-    empty:   { start: "#151b2e", mid: "#0c1020", end: "#050810", glow: "none" },
+    matisse: { start: "#60a5fa", mid: "#3b82f6", end: "#1d4ed8", glow: "rgba(59, 130, 246, 0.55)", accent: "#93c5fd" },
+    joe:     { start: "#f87171", mid: "#ef4444", end: "#b91c1c", glow: "rgba(239, 68, 68, 0.55)", accent: "#fca5a5" },
+    empty:   { start: "#151b2e", mid: "#0c1020", end: "#050810", glow: "none", accent: "#334155" },
   };
 
   const c = colors[winner ?? "empty"];
 
   return (
-    <div className="flex flex-col items-center gap-1">
+    <div className="flex flex-col items-center gap-0.5">
       <div
-        className={`relative transition-all duration-500 ${isActive ? "animate-ball-pop" : ""}`}
+        className={`relative transition-all duration-500 ${isActive ? "animate-ball-pop" : ""} ${isNext && !isActive ? "animate-soft-pulse" : ""}`}
         style={{
-          filter: isActive ? `drop-shadow(0 0 12px ${c.glow})` : "none",
+          filter: isActive ? `drop-shadow(0 0 14px ${c.glow})` : "none",
         }}
       >
         <svg
-          width="52"
-          height="52"
-          viewBox="0 0 72 72"
-          className="sm:w-[60px] sm:h-[60px]"
+          width="50"
+          height="58"
+          viewBox="0 0 72 84"
+          className="sm:w-[58px] sm:h-[68px]"
         >
           <defs>
-            <radialGradient id={gradId} cx="40%" cy="35%" r="60%">
+            <radialGradient id={gradId} cx="38%" cy="32%" r="65%">
               <stop offset="0%" stopColor={c.start} />
-              <stop offset="60%" stopColor={c.mid} />
+              <stop offset="55%" stopColor={c.mid} />
               <stop offset="100%" stopColor={c.end} />
+            </radialGradient>
+            <radialGradient id={shadowId} cx="50%" cy="50%" r="50%">
+              <stop offset="0%" stopColor={isActive ? c.mid : "#0f172a"} stopOpacity={isActive ? "0.3" : "0.15"} />
+              <stop offset="100%" stopColor="transparent" stopOpacity="0" />
             </radialGradient>
           </defs>
 
-          {/* Main ball */}
-          <circle cx="36" cy="36" r="33" fill={`url(#${gradId})`} />
+          {/* Shadow underneath */}
+          <ellipse cx="36" cy="74" rx="20" ry="5" fill={`url(#${shadowId})`} />
 
-          {/* Subtle edge ring */}
+          {/* Main ball */}
+          <circle cx="36" cy="34" r="31" fill={`url(#${gradId})`} />
+
+          {/* Subtle outer ring */}
           <circle
-            cx="36" cy="36" r="33"
+            cx="36" cy="34" r="31"
             fill="none"
-            stroke={isActive ? "rgba(255,255,255,0.12)" : "rgba(100,116,139,0.15)"}
-            strokeWidth="1"
+            stroke={isActive ? "rgba(255,255,255,0.1)" : "rgba(100,116,139,0.1)"}
+            strokeWidth="0.8"
           />
 
           {/* White stripe band */}
           <ellipse
-            cx="36" cy="36" rx="19" ry="13"
+            cx="36" cy="34" rx="18" ry="12"
             fill="white"
-            opacity={isActive ? 0.92 : 0.06}
+            opacity={isActive ? 0.9 : 0.05}
           />
 
           {/* Number circle */}
           <circle
-            cx="36" cy="36" r="11"
+            cx="36" cy="34" r="10.5"
             fill="white"
-            opacity={isActive ? 1 : 0.08}
+            opacity={isActive ? 1 : 0.07}
           />
 
           {/* Number text */}
           <text
-            x="36" y="36.5"
+            x="36" y="34.5"
             textAnchor="middle"
             dominantBaseline="central"
-            fontSize="15"
+            fontSize="14"
             fontWeight="800"
-            fill={isActive ? c.mid : "rgba(100,116,139,0.4)"}
+            fill={isActive ? c.mid : "rgba(100,116,139,0.35)"}
           >
             {number}
           </text>
 
-          {/* Highlight gloss */}
+          {/* Primary highlight */}
           <ellipse
-            cx="27" cy="23"
-            rx="9" ry="5"
+            cx="27" cy="22"
+            rx="8" ry="4.5"
             fill="white"
-            opacity={isActive ? 0.3 : 0.03}
-            transform="rotate(-25 27 23)"
+            opacity={isActive ? 0.32 : 0.025}
+            transform="rotate(-25 27 22)"
+          />
+
+          {/* Secondary soft sheen */}
+          <ellipse
+            cx="44" cy="42"
+            rx="6" ry="3"
+            fill="white"
+            opacity={isActive ? 0.06 : 0}
+            transform="rotate(20 44 42)"
           />
         </svg>
       </div>
-      {!isActive && (
-        <span className="text-[9px] font-bold text-slate-700 tabular-nums mt-0.5">
-          {number}
+      {/* "Next" indicator pulsing ring */}
+      {isNext && !isActive && (
+        <span className="text-[8px] font-black text-amber-400/60 uppercase tracking-widest">
+          next
         </span>
       )}
     </div>

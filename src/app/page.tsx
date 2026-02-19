@@ -2,6 +2,7 @@ import ActiveSession from "../components/ActiveSession";
 import Leaderboard from "../components/Leaderboard";
 import MatchHistory from "../components/MatchHistory";
 import StreakBanner from "../components/StreakBanner";
+import LastSessionBanner from "../components/LastSessionBanner";
 import ToastContainer from "../components/Toast";
 import AmbientBackground from "../components/AmbientBackground";
 
@@ -49,6 +50,7 @@ export default function Home() {
       <main className="relative z-10 max-w-lg mx-auto px-3 sm:px-4 pt-5 pb-10 safe-bottom">
         <div className="space-y-5">
           <StreakBanner />
+          <LastSessionBanner />
           <ActiveSession />
           <Leaderboard />
           <MatchHistory />
