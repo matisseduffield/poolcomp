@@ -102,3 +102,56 @@ export const endEarly = mutation({
     });
   },
 });
+
+// Get current win streaks
+export const getStreaks = query({
+  args: {},
+  handler: async (ctx) => {
+    const sessions = await ctx.db
+      .query("sessions")
+      .filter((q) => q.eq(q.field("status"), "completed"))
+      .order("desc")
+      .collect();
+
+    // Current streak
+    let currentStreak = 0;
+    let streakHolder: "matisse" | "joe" | null = null;
+
+    for (const s of sessions) {
+      if (s.winner === "tie") break;
+      if (streakHolder === null) {
+        streakHolder = s.winner as "matisse" | "joe";
+        currentStreak = 1;
+      } else if (s.winner === streakHolder) {
+        currentStreak++;
+      } else {
+        break;
+      }
+    }
+
+    // Best streaks ever
+    let bestMatisse = 0;
+    let bestJoe = 0;
+    let runMatisse = 0;
+    let runJoe = 0;
+
+    // Process oldest-first for best streaks
+    for (let i = sessions.length - 1; i >= 0; i--) {
+      const s = sessions[i];
+      if (s.winner === "matisse") {
+        runMatisse++;
+        runJoe = 0;
+        if (runMatisse > bestMatisse) bestMatisse = runMatisse;
+      } else if (s.winner === "joe") {
+        runJoe++;
+        runMatisse = 0;
+        if (runJoe > bestJoe) bestJoe = runJoe;
+      } else {
+        runMatisse = 0;
+        runJoe = 0;
+      }
+    }
+
+    return { currentStreak, streakHolder, bestMatisse, bestJoe };
+  },
+});

@@ -70,3 +70,44 @@ export const recordWin = mutation({
     return { gameNumber, isComplete };
   },
 });
+
+// Undo the last game in the active session
+export const undoLast = mutation({
+  args: { sessionId: v.id("sessions") },
+  handler: async (ctx, { sessionId }) => {
+    const session = await ctx.db.get(sessionId);
+    if (!session || session.status !== "active") {
+      throw new Error("No active session");
+    }
+
+    const games = await ctx.db
+      .query("games")
+      .withIndex("by_session", (q) => q.eq("sessionId", sessionId))
+      .collect();
+
+    if (games.length === 0) {
+      throw new Error("No games to undo");
+    }
+
+    // Find the last game (highest gameNumber)
+    const lastGame = games.reduce((a, b) =>
+      a.gameNumber > b.gameNumber ? a : b
+    );
+
+    // Remove the game
+    await ctx.db.delete(lastGame._id);
+
+    // Update session tallies
+    const newMatisseWins =
+      session.matisseWins - (lastGame.winner === "matisse" ? 1 : 0);
+    const newJoeWins =
+      session.joeWins - (lastGame.winner === "joe" ? 1 : 0);
+
+    await ctx.db.patch(sessionId, {
+      matisseWins: newMatisseWins,
+      joeWins: newJoeWins,
+    });
+
+    return { undoneWinner: lastGame.winner, gameNumber: lastGame.gameNumber };
+  },
+});

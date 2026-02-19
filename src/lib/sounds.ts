@@ -1,4 +1,4 @@
-// Audio feedback utilities — uses the Web Audio API for lightweight sounds
+// Audio + haptic feedback utilities
 
 let audioCtx: AudioContext | null = null;
 
@@ -9,8 +9,20 @@ function getAudioContext(): AudioContext {
   return audioCtx;
 }
 
-/** Short click / tap sound */
+/** Trigger device vibration if available */
+export function vibrate(pattern: number | number[] = 30) {
+  try {
+    if (navigator.vibrate) {
+      navigator.vibrate(pattern);
+    }
+  } catch {
+    // Silently fail
+  }
+}
+
+/** Short click / tap sound + haptic */
 export function playClick() {
+  vibrate(15);
   try {
     const ctx = getAudioContext();
     const osc = ctx.createOscillator();
@@ -33,8 +45,9 @@ export function playClick() {
   }
 }
 
-/** Victory cheer — ascending chord */
+/** Victory cheer — ascending chord + strong haptic */
 export function playCheer() {
+  vibrate([50, 30, 50, 30, 100]);
   try {
     const ctx = getAudioContext();
     const freqs = [523.25, 659.25, 783.99, 1046.5]; // C5 E5 G5 C6
@@ -57,6 +70,31 @@ export function playCheer() {
       osc.start(now + i * 0.1);
       osc.stop(now + i * 0.1 + 0.4);
     });
+  } catch {
+    // Silently fail
+  }
+}
+
+/** Soft undo / error sound */
+export function playUndo() {
+  vibrate(10);
+  try {
+    const ctx = getAudioContext();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+
+    osc.type = "sine";
+    osc.frequency.setValueAtTime(400, ctx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(300, ctx.currentTime + 0.12);
+
+    gain.gain.setValueAtTime(0.1, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.12);
+
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+
+    osc.start(ctx.currentTime);
+    osc.stop(ctx.currentTime + 0.12);
   } catch {
     // Silently fail
   }
