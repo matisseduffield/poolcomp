@@ -4,13 +4,62 @@ import { useState, useEffect, useCallback } from "react";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "@convex/_generated/api";
 import { showToast } from "../../components/Toast";
-import { playClick, playCheer } from "../../lib/sounds";
+import { playClick, playCheer, playPocket, playRestore, playEliminate } from "../../lib/sounds";
 import ToastContainer from "../../components/Toast";
 import AmbientBackground from "../../components/AmbientBackground";
+import Confetti from "../../components/Confetti";
+
+// ── Helpers ─────────────────────────────────────────
+const STORAGE_KEY = "kelly-pool-players";
+
+function loadSavedPlayers(): string[] {
+  try {
+    const saved = localStorage.getItem(STORAGE_KEY);
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      if (Array.isArray(parsed) && parsed.length >= 2) return parsed;
+    }
+  } catch { /* ignore */ }
+  return ["", ""];
+}
+
+function savePlayers(names: string[]) {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(names));
+  } catch { /* ignore */ }
+}
+
+function formatDuration(ms: number): string {
+  const s = Math.floor(ms / 1000);
+  if (s < 60) return `${s}s`;
+  const m = Math.floor(s / 60);
+  const rem = s % 60;
+  if (m < 60) return `${m}m ${rem}s`;
+  const h = Math.floor(m / 60);
+  return `${h}h ${m % 60}m`;
+}
+
+function timeAgo(ts: number): string {
+  const diff = Date.now() - ts;
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return "Just now";
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}h ago`;
+  const days = Math.floor(hrs / 24);
+  return `${days}d ago`;
+}
 
 function PlayerSetup({ onStart }: { onStart: (names: string[], ballsPerPlayer: number) => void }) {
   const [players, setPlayers] = useState<string[]>(["", ""]);
   const [ballsPerPlayer, setBallsPerPlayer] = useState(1);
+  const [loaded, setLoaded] = useState(false);
+
+  // Load saved names on mount (client-only)
+  useEffect(() => {
+    setPlayers(loadSavedPlayers());
+    setLoaded(true);
+  }, []);
 
   const addPlayer = () => {
     if (players.length >= 15) return;
@@ -113,7 +162,10 @@ function PlayerSetup({ onStart }: { onStart: (names: string[], ballsPerPlayer: n
         <button
           onClick={() => {
             const validNames = players.filter((n) => n.trim());
-            if (validNames.length >= 2) onStart(validNames, effectiveBpp);
+            if (validNames.length >= 2) {
+              savePlayers(players.filter((n) => n.trim()));
+              onStart(validNames, effectiveBpp);
+            }
           }}
           disabled={!canStart}
           className="flex-1 h-12 rounded-2xl btn-accent text-base font-extrabold
@@ -332,6 +384,8 @@ function ActiveKellyGame({
     ballsPocketed: number[];
     winner?: string;
     status: string;
+    startedAt?: number;
+    endedAt?: number;
   };
 }) {
   const pocketBall = useMutation(api.kelly.pocketBall);
@@ -351,9 +405,14 @@ function ActiveKellyGame({
   // Initial reveal flow
   const [showRevealFlow, setShowRevealFlow] = useState(false);
   const [revealCompleted, setRevealCompleted] = useState(false);
+  // Confetti on win
+  const [showConfetti, setShowConfetti] = useState(false);
+  // Live elapsed time
+  const [elapsed, setElapsed] = useState("");
 
   const allBalls = Array.from({ length: 15 }, (_, i) => i + 1);
   const effectiveBpp = game.ballsPerPlayer ?? 1;
+  const progressPct = (game.ballsPocketed.length / 15) * 100;
 
   const getPlayerBalls = useCallback((p: typeof game.players[number]): number[] =>
     p.secretBalls ?? (p.secretBall != null ? [p.secretBall] : []), []);
@@ -377,8 +436,30 @@ function ActiveKellyGame({
     }
   }, [announcement]);
 
+  // Live game timer
+  useEffect(() => {
+    if (game.status === "active" && game.startedAt) {
+      const tick = () => setElapsed(formatDuration(Date.now() - game.startedAt!));
+      tick();
+      const iv = setInterval(tick, 1000);
+      return () => clearInterval(iv);
+    }
+    if (game.status === "finished" && game.startedAt && game.endedAt) {
+      setElapsed(formatDuration(game.endedAt - game.startedAt));
+    }
+  }, [game.status, game.startedAt, game.endedAt]);
+
+  // Trigger confetti on win
+  useEffect(() => {
+    if (game.status === "finished" && game.winner) {
+      setShowConfetti(true);
+      const t = setTimeout(() => setShowConfetti(false), 4000);
+      return () => clearTimeout(t);
+    }
+  }, [game.status, game.winner]);
+
   const handlePocket = async (ballNumber: number) => {
-    playClick();
+    playPocket();
     try {
       const result = await pocketBall({
         gameId: game._id as never,
@@ -394,6 +475,8 @@ function ActiveKellyGame({
 
       if (result.winner) {
         playCheer();
+      } else if (result.eliminated) {
+        playEliminate();
       }
     } catch (e: unknown) {
       showToast((e as Error).message, "info");
@@ -401,7 +484,7 @@ function ActiveKellyGame({
   };
 
   const handleUnpocket = async (ballNumber: number) => {
-    playClick();
+    playRestore();
     try {
       await unpocketBall({ gameId: game._id as never, ballNumber });
     } catch (e: unknown) {
@@ -425,16 +508,28 @@ function ActiveKellyGame({
   if (game.status === "finished") {
     return (
       <div className="glass-elevated rounded-3xl p-5 animate-slide-up text-center">
+        <Confetti active={showConfetti} />
         <div className="text-4xl mb-3">🏆</div>
-        <h2 className="text-2xl font-black text-gradient-gold mb-2">{game.winner} Wins!</h2>
-        <p className="text-slate-500 text-sm mb-5">
-          {game.ballsPocketed.length} balls pocketed &middot; {game.players.length} players
-          {effectiveBpp > 1 && ` · ${effectiveBpp} balls each`}
-        </p>
+        <h2 className="text-2xl font-black text-gradient-gold mb-1">{game.winner} Wins!</h2>
+        <div className="flex items-center justify-center gap-3 text-slate-500 text-sm mb-5">
+          <span>{game.ballsPocketed.length} balls pocketed</span>
+          <span>&middot;</span>
+          <span>{game.players.length} players</span>
+          {effectiveBpp > 1 && <><span>&middot;</span><span>{effectiveBpp} balls each</span></>}
+          {elapsed && <><span>&middot;</span><span>⏱ {elapsed}</span></>}
+        </div>
 
-        {/* Reveal all secret balls */}
+        {/* Reveal all secret balls with actual colored balls */}
         <div className="space-y-2">
-          {game.players.map((player, idx) => {
+          {[...game.players]
+            .sort((a, b) => {
+              if (a.name === game.winner) return -1;
+              if (b.name === game.winner) return 1;
+              if (a.isEliminated && !b.isEliminated) return 1;
+              if (!a.isEliminated && b.isEliminated) return -1;
+              return 0;
+            })
+            .map((player, idx) => {
             const balls = getPlayerBalls(player);
             return (
               <div
@@ -456,9 +551,13 @@ function ActiveKellyGame({
                 </div>
                 <div className="flex items-center gap-1.5">
                   {balls.map((ball) => (
-                    <span key={ball} className="text-xs font-bold px-2 py-0.5 rounded-full bg-slate-800/50 text-slate-400">
-                      🎱 {ball}
-                    </span>
+                    <KellyBall
+                      key={ball}
+                      number={ball}
+                      isPocketed={game.ballsPocketed.includes(ball)}
+                      isLowest={false}
+                      size="sm"
+                    />
                   ))}
                 </div>
               </div>
@@ -596,24 +695,45 @@ function ActiveKellyGame({
         )}
 
         {/* Header bar */}
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2.5">
-            <div className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-live-dot" />
-            <h2 className="text-sm font-bold text-emerald-400/90 uppercase tracking-wider">Kelly Pool</h2>
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2.5">
+              <div className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-live-dot" />
+              <h2 className="text-sm font-bold text-emerald-400/90 uppercase tracking-wider">Kelly Pool</h2>
+            </div>
+            <div className="flex items-center gap-2">
+              {elapsed && (
+                <span className="text-[11px] text-slate-500 font-bold bg-slate-800/70 px-2.5 py-1 rounded-full border border-slate-700/40">
+                  ⏱ {elapsed}
+                </span>
+              )}
+              <span className="text-[11px] text-slate-400 font-bold bg-slate-800/70 px-3 py-1 rounded-full border border-slate-700/40">
+                {15 - game.ballsPocketed.length} LEFT
+              </span>
+              {/* Re-reveal button */}
+              <button
+                onClick={() => setShowRevealFlow(true)}
+                className="text-[11px] text-amber-400/60 font-bold bg-slate-800/70 px-3 py-1 rounded-full border border-slate-700/40
+                           hover:text-amber-400 transition-colors cursor-pointer"
+                title="Pass phone around again"
+              >
+                📱
+              </button>
+            </div>
           </div>
-          <div className="flex items-center gap-2">
-            <span className="text-[11px] text-slate-400 font-bold bg-slate-800/70 px-3 py-1 rounded-full border border-slate-700/40">
-              {15 - game.ballsPocketed.length} BALLS LEFT
-            </span>
-            {/* Re-reveal button */}
-            <button
-              onClick={() => setShowRevealFlow(true)}
-              className="text-[11px] text-amber-400/60 font-bold bg-slate-800/70 px-3 py-1 rounded-full border border-slate-700/40
-                         hover:text-amber-400 transition-colors cursor-pointer"
-              title="Pass phone around again"
-            >
-              📱 Re-deal
-            </button>
+          {/* Progress bar */}
+          <div className="w-full h-1.5 bg-slate-800/60 rounded-full overflow-hidden">
+            <div
+              className="h-full rounded-full transition-all duration-500 ease-out"
+              style={{
+                width: `${progressPct}%`,
+                background: progressPct > 75
+                  ? "linear-gradient(90deg, #f59e0b, #ef4444)"
+                  : progressPct > 40
+                    ? "linear-gradient(90deg, #22c55e, #f59e0b)"
+                    : "linear-gradient(90deg, #3b82f6, #22c55e)",
+              }}
+            />
           </div>
         </div>
 
@@ -643,13 +763,20 @@ function ActiveKellyGame({
             Players — tap to peek at secret ball{effectiveBpp > 1 ? "s" : ""}
           </p>
           <div className="space-y-2">
-            {game.players.map((player, idx) => {
+            {[...game.players]
+              .map((player, origIdx) => ({ player, origIdx }))
+              .sort((a, b) => {
+                if (a.player.isEliminated && !b.player.isEliminated) return 1;
+                if (!a.player.isEliminated && b.player.isEliminated) return -1;
+                return 0;
+              })
+              .map(({ player, origIdx }) => {
               const balls = getPlayerBalls(player);
               const remaining = balls.filter((b) => !game.ballsPocketed.includes(b)).length;
               return (
                 <button
-                  key={idx}
-                  onClick={() => !player.isEliminated && handlePeek(idx)}
+                  key={origIdx}
+                  onClick={() => !player.isEliminated && handlePeek(origIdx)}
                   className={`
                     w-full flex items-center justify-between px-4 py-3.5 rounded-2xl
                     ${player.isEliminated
@@ -739,21 +866,39 @@ function KellyGameHistory() {
         </svg>
         Past Games
       </h2>
-      <ul className="space-y-2 max-h-60 overflow-y-auto pr-1 custom-scrollbar">
-        {history.map((g) => (
-          <li
-            key={g._id}
-            className="stat-card rounded-xl border-l-[3px] border-l-amber-500/50 px-3.5 py-3 flex items-center justify-between"
-          >
-            <div className="flex items-center gap-3">
-              <span className="text-sm">🏆</span>
-              <span className="text-sm font-bold text-white">{g.winner}</span>
-            </div>
-            <span className="text-[11px] text-slate-600 font-medium">
-              {g.players.length} players
-            </span>
-          </li>
-        ))}
+      <ul className="space-y-2 max-h-72 overflow-y-auto pr-1 custom-scrollbar">
+        {history.map((g) => {
+          const duration = g.startedAt && g.endedAt ? formatDuration(g.endedAt - g.startedAt) : null;
+          const ago = g.endedAt ? timeAgo(g.endedAt) : g.startedAt ? timeAgo(g.startedAt) : null;
+          return (
+            <li
+              key={g._id}
+              className="stat-card rounded-xl border-l-[3px] border-l-amber-500/50 px-3.5 py-3"
+            >
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <span className="text-sm">🏆</span>
+                  <span className="text-sm font-bold text-white">{g.winner}</span>
+                </div>
+                <div className="flex items-center gap-2 text-[10px] text-slate-600 font-medium">
+                  {g.ballsPocketed && (
+                    <span>{g.ballsPocketed.length} balls</span>
+                  )}
+                  <span>{g.players.length}p</span>
+                  {g.ballsPerPlayer && g.ballsPerPlayer > 1 && (
+                    <span>×{g.ballsPerPlayer}</span>
+                  )}
+                </div>
+              </div>
+              {(duration || ago) && (
+                <div className="flex items-center gap-2 mt-1.5 text-[10px] text-slate-600">
+                  {duration && <span>⏱ {duration}</span>}
+                  {ago && <span className="ml-auto">{ago}</span>}
+                </div>
+              )}
+            </li>
+          );
+        })}
       </ul>
     </div>
   );

@@ -124,6 +124,7 @@ export const createGame = mutation({
       ballsPocketed: [],
       lowestBallOnTable: 1,
       totalBalls: 15,
+      startedAt: Date.now(),
     });
   },
 });
@@ -193,6 +194,7 @@ export const pocketBall = mutation({
         players: updatedPlayers,
         ballsPocketed: newPocketed,
         winner,
+        endedAt: Date.now(),
       });
       return { winner, eliminated, ballNumber, ownerName };
     }

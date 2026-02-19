@@ -34,6 +34,8 @@ export default defineSchema({
     lowestBallOnTable: v.optional(v.number()),  // legacy (no longer used)
     winner: v.optional(v.string()), // winner's name
     totalBalls: v.number(),         // usually 15
+    startedAt: v.optional(v.number()),  // timestamp when game started
+    endedAt: v.optional(v.number()),    // timestamp when game finished
   }),
   kellyHistory: defineTable({
     kellyGameId: v.id("kellyGames"),
